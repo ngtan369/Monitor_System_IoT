@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ESP32 Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            display: flex;
+            height: 100vh;
+            background: #f5f7fa;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 220px;
+            background: #007acc;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            padding-top: 30px;
+        }
+
+        .sidebar h2 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .sidebar button {
+            background: none;
+            border: none;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            width: 100%;
+            cursor: pointer;
+            font-size: 16px;
+            border-left: 5px solid transparent;
+            transition: background 0.2s, border-left 0.2s;
+        }
+
+        .sidebar button:hover,
+        .sidebar button.active {
+            background: #005b99;
+            border-left: 5px solid #fff;
+        }
+
+        /* Content area */
+        .content {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #007acc;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .switch-group {
+            margin-top: 30px;
+        }
+
+        .switch-label {
+            font-size: 1.1em;
+        }
+
+        .switch {
+            position: relative;
+            display: inline-block;
+            width: 48px;
+            height: 26px;
+        }
+
+        .switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .slider {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            border-radius: 26px;
+            cursor: pointer;
+            transition: .4s;
+        }
+
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 20px;
+            width: 20px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        input:checked+.slider {
+            background-color: #007acc;
+        }
+
+        input:checked+.slider:before {
+            transform: translateX(22px);
+        }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 40px);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .color-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 6px;
+            border: 2px solid #eee;
+            cursor: pointer;
+        }
+
+        .color-btn.selected {
+            border: 2px solid #007acc;
+        }
+
+        /* Wi-Fi config form */
+        #wifiForm {
+            max-width: 320px;
+            margin: 0 auto;
+        }
+
+        #wifiForm input {
+            display: block;
+            width: 80%;
+            font-size: 1.2em;
+            padding: 14px 16px;
+            margin: 14px auto;
+            border-radius: 18px;
+            border: 1px solid #bbb;
+            box-sizing: border-box;
+            outline: none;
+            transition: border 0.2s;
+        }
+
+        #wifiForm input:focus {
+            border: 1.5px solid #007acc;
+        }
+
+        #wifiForm button {
+            padding: 12px 0;
+            width: 80%;
+            margin: 18px auto 0 auto;
+            border-radius: 18px;
+            font-size: 1.1em;
+            background: #007acc;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: block;
+            transition: background 0.2s;
+        }
+
+        #wifiForm button:hover {
+            background: #005b99;
+        }
+
+        .sidebar button {
+            background: none;
+            border: none;
+            color: white;
+            padding: 15px;
+            text-align: left;
+            width: 100%;
+            cursor: pointer;
+            font-size: 16px;
+            border-left: 5px solid transparent;
+            transition: background 0.2s, border-left 0.2s, color 0.2s;
+            outline: none;
+            border-radius: 0 20px 20px 0;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .sidebar button:hover,
+        .sidebar button.active {
+            background: #005b99;
+            border-left: 5px solid #fff;
+            color: #ffe082;
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #09f;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            vertical-align: middle;
+            margin-left: 10px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        #otaForm button {
+            padding: 12px 0;
+            width: 80%;
+            margin: 18px auto 0 auto;
+            border-radius: 18px;
+            font-size: 1.1em;
+            background: linear-gradient(90deg, #007acc 60%, #005b99 100%);
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: block;
+            transition: background 0.2s, box-shadow 0.2s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        #otaForm button:hover {
+            background: linear-gradient(90deg, #005b99 60%, #007acc 100%);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.13);
+        }
+    </style>
+</head>
+
+<body>
+    <div class="sidebar">
+        <h2>ESP32</h2>
+        <button class="active" onclick="showPage('dashboard', event)">Dashboard</button>
+        <button onclick="showPage('wifi')">Cấu hình Wi-Fi</button>
+        <button onclick="showPage('ota')">Nạp Firmware</button>
+    </div>
+
+    <div class="content">
+        <!-- Dashboard page -->
+        <div id="dashboardPage">
+            <h1>Dashboard</h1>
+            <table>
+                <tr>
+                    <th>Sensor</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Nhiệt độ</td>
+                    <td id="temp">--</td>
+                </tr>
+                <tr>
+                    <td>Độ ẩm</td>
+                    <td id="humi">--</td>
+                </tr>
+                <tr>
+                    <td>Độ ẩm đất</td>
+                    <td id="soil">--</td>
+                </tr>
+                <tr>
+                    <td>Khoảng cách</td>
+                    <td id="distance">--</td>
+                </tr>
+                <tr>
+                    <td>Ánh sáng</td>
+                    <td id="light">--</td>
+                </tr>
+            </table>
+
+            <div class="switch-group">
+                <label class="switch-label">RGB Mode
+                    <span class="switch">
+                        <input type="checkbox" id="rgbModeSwitch" onchange="toggleRgbModeSwitch()">
+                        <span class="slider"></span>
+                    </span>
+                </label>
+                <div id="colorGrid" class="color-grid" style="display:none;">
+                    <button class="color-btn" style="background:red" onclick="setColor('red')"></button>
+                    <button class="color-btn" style="background:orange" onclick="setColor('orange')"></button>
+                    <button class="color-btn" style="background:yellow" onclick="setColor('yellow')"></button>
+                    <button class="color-btn" style="background:green" onclick="setColor('green')"></button>
+                    <button class="color-btn" style="background:blue" onclick="setColor('blue')"></button>
+                    <button class="color-btn" style="background:indigo" onclick="setColor('indigo')"></button>
+                    <button class="color-btn" style="background:purple" onclick="setColor('purple')"></button>
+                    <button class="color-btn" style="background:white" onclick="setColor('white')"></button>
+                    <button class="color-btn" style="background:black" onclick="setColor('black')"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Wi-Fi config page -->
+        <div id="wifiPage" style="display: none;">
+            <h1>Cấu hình Wi-Fi</h1>
+            <form id="wifiForm" onsubmit="submitWiFi(event)">
+                <input type="text" id="newSSID" placeholder="Tên WiFi" required>
+                <input type="password" id="newPWD" placeholder="Password" required>
+                <button type="submit">Cập nhật Wi-Fi</button>
+            </form>
+            <p id="wifiMsg"></p>
+        </div>
+
+        <div id="otaPage" style="display: none;">
+            <h1>Nạp Firmware (OTA)</h1>
+            <form id="otaForm">
+                <input type="file" name="firmware" id="firmwareFile" required style="margin-bottom:16px;">
+                <button type="submit">Nạp Firmware</button>
+                <div id="otaProgressBar"
+                    style="width:80%;height:18px;background:#eee;border-radius:9px;margin:16px auto;display:none;">
+                    <div id="otaProgress"
+                        style="height:100%;width:0%;background:#007acc;border-radius:9px;text-align:center;color:white;font-size:13px;line-height:18px;">
+                    </div>
+                </div>
+            </form>
+            <p id="otaMsg"></p>
+        </div>
+    </div>
+
+    <script>
+        let ws;
+
+        function connectWS() {
+            ws = new WebSocket('ws://' + location.hostname + '/ws');
+            ws.onopen = () => ws.send("get_data");
+            ws.onmessage = (event) => {
+                const d = JSON.parse(event.data);
+                ['temp', 'humi', 'soil', 'distance', 'light'].forEach(id => {
+                    if (typeof d[id] !== 'undefined') document.getElementById(id).innerText = d[id];
+                });
+
+                if (typeof d.mode !== 'undefined') {
+                    document.getElementById('rgbModeSwitch').checked = d.mode;
+                    document.getElementById('colorGrid').style.display = d.mode ? 'grid' : 'none';
+                }
+            };
+            ws.onclose = () => setTimeout(connectWS, 1000);
+        }
+
+        function fetchData() {
+            if (ws && ws.readyState === 1) ws.send('get_data');
+        }
+
+        function toggleRgbModeSwitch() {
+            const val = document.getElementById('rgbModeSwitch').checked ? 1 : 0;
+            if (ws && ws.readyState === 1) ws.send('mode_switch:' + val);
+            //document.getElementById('colorGrid').style.display = val ? 'grid' : 'none';
+        }
+
+        function setColor(color) {
+            if (ws && ws.readyState === 1) ws.send('color:' + color);
+            document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+        }
+
+        function submitWiFi(e) {
+            e.preventDefault();
+            const ssid = document.getElementById('newSSID').value;
+            const pwd = document.getElementById('newPWD').value;
+            const json = JSON.stringify({ ssid, password: pwd });
+            if (ws && ws.readyState === 1) {
+                ws.send("wifi:" + json);
+                document.getElementById("wifiMsg").innerHTML =
+                    'Đang cập nhật Wi-Fi... <span class="spinner"></span>';
+                setTimeout(() => {
+                    location.reload();
+                }, 3000);
+            }
+        }
+        document.getElementById('otaForm').onsubmit = function (e) {
+            e.preventDefault();
+            const fileInput = document.getElementById('firmwareFile');
+            const file = fileInput.files[0];
+            if (!file) return;
+
+            const xhr = new XMLHttpRequest();
+            xhr.open("POST", "/update", true);
+
+            // Hiển thị thanh tiến độ
+            document.getElementById('otaProgressBar').style.display = "block";
+            document.getElementById('otaProgress').style.width = "0%";
+            document.getElementById('otaProgress').innerText = "0%";
+            document.getElementById('otaMsg').innerText = "Đang nạp firmware, vui lòng chờ...";
+
+            xhr.upload.onprogress = function (evt) {
+                if (evt.lengthComputable) {
+                    const percent = Math.round((evt.loaded / evt.total) * 100);
+                    document.getElementById('otaProgress').style.width = percent + "%";
+                    document.getElementById('otaProgress').innerText = percent + "%";
+                }
+            };
+
+            xhr.onload = function () {
+                if (xhr.status === 200) {
+                    document.getElementById('otaMsg').innerText = "Nạp firmware thành công! Thiết bị sẽ tự khởi động lại.";
+                } else {
+                    document.getElementById('otaMsg').innerText = "Nạp firmware thất bại!";
+                }
+                setTimeout(() => {
+                    document.getElementById('otaProgressBar').style.display = "none";
+                    document.getElementById('otaProgress').style.width = "0%";
+                }, 3000);
+            };
+
+            const formData = new FormData();
+            formData.append("firmware", file);
+            xhr.send(formData);
+        };
+        function showPage(page, event) {
+            document.getElementById('dashboardPage').style.display = (page === 'dashboard') ? 'block' : 'none';
+            document.getElementById('wifiPage').style.display = (page === 'wifi') ? 'block' : 'none';
+            document.getElementById('otaPage').style.display = (page === 'ota') ? 'block' : 'none';
+            document.querySelectorAll('.sidebar button').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        setInterval(fetchData, 1000);
+        window.onload = connectWS;
+    </script>
+</body>
+
+</html>

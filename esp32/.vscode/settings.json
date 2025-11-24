@@ -1,0 +1,32 @@
+{
+    "files.associations": {
+        "system_error": "cpp",
+        "array": "cpp",
+        "deque": "cpp",
+        "string": "cpp",
+        "unordered_map": "cpp",
+        "unordered_set": "cpp",
+        "vector": "cpp",
+        "string_view": "cpp",
+        "initializer_list": "cpp",
+        "regex": "cpp",
+        "random": "cpp",
+        "chrono": "cpp",
+        "functional": "cpp",
+        "istream": "cpp",
+        "ostream": "cpp",
+        "ratio": "cpp",
+        "tuple": "cpp",
+        "type_traits": "cpp",
+        "utility": "cpp",
+        "thread": "cpp",
+        "stdexcept": "cpp",
+        "*.tcc": "cpp",
+        "bitset": "cpp",
+        "list": "cpp",
+        "atomic": "cpp",
+        "cmath": "cpp",
+        "algorithm": "cpp"
+    },
+    "cmake.ignoreCMakeListsMissing": true
+}
