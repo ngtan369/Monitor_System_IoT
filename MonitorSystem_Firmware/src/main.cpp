@@ -7,13 +7,11 @@ void setup() {
     LittleFS.begin();
     initWiFi();
     initWebserver();
-    // initFirebase();
-    initDHT20();
+    initFirebase();
     initLed();
-    initFan();
 }
 
 void loop() {
     Wifi_reconnect();
-    delay(500);
+    delay(2000);
 }

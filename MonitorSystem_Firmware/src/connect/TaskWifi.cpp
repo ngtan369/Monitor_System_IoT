@@ -58,7 +58,7 @@ void setup_STA() {
     Serial.println("Connecting to WiFi ...");
     WiFi.begin(ssid, password);
     unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && (millis() - start) < 3000) {
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < 7000) {
         Serial.print("...");
         vTaskDelay(pdMS_TO_TICKS(200));
     }
@@ -75,7 +75,6 @@ void setup_STA() {
 void initWiFi() {
     loadWiFiFromFS();
     pinMode(BOOT_BUTTON, INPUT_PULLUP);
-    pinMode(LED_BUILTIN, OUTPUT);
     WiFi.mode(WIFI_STA);
     setup_STA();
 }

@@ -85,7 +85,7 @@ void Led_Indicate_Task(void* pvParameters) {
     }
 }
 void initLed() {
-    pinMode(LED_ONBOARD, OUTPUT);
+    pinMode(LED_BUILTIN, OUTPUT);
     led_off();
     xTaskCreate(
         Led_Indicate_Task,
@@ -96,8 +96,8 @@ void initLed() {
         &xTaskLedHandle);
 }
 void led_off() {
-    digitalWrite(LED_ONBOARD, 0);
+    digitalWrite(LED_BUILTIN, 0);
 }
 void led_on() {
-    digitalWrite(LED_ONBOARD, 1);
+    digitalWrite(LED_BUILTIN, 1);
 }

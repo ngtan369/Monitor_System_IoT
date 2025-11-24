@@ -1,7 +1,11 @@
 #ifndef TASK_LED_H
 #define TASK_LED_H
 
-#include "globals.h"
+#include <Adafruit_NeoPixel.h>
+
+#define led_pin 6    // D3
+#define LED_BUILTIN 2
+
 enum LED_COLOR {
     red,
     orange,
