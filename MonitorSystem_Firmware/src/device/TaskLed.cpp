@@ -50,40 +50,37 @@ void TaskLed(void* pvParameters) {
     }
 }
 
-// Handle của Task LED, cần thiết để các Task khác gửi Notification
-TaskHandle_t xTaskLedHandle = NULL;
 
+TaskHandle_t xTaskLedHandle = NULL;
 void Led_Indicate_Task(void* pvParameters) {
-    // Giá trị mặc định ban đầu: NO_WIFI (1000ms)
     uint32_t ulFlashDelay = 1000;
     uint32_t ulNotifiedValue;
-    const TickType_t xMaxBlockTime = portMAX_DELAY;  // Chờ vô thời hạn
 
-    for (;;) {
-        // 1. Chờ nhận Notification:
-        // Nếu có thông báo, Task sẽ nhận giá trị và ulNotifiedValue sẽ được cập nhật.
-        // Nếu không, Task sẽ hết thời gian chờ và tiếp tục với ulFlashDelay hiện tại.
-        // Ở đây ta dùng xTaskNotifyWait để chờ.
+    while(1){
+
+        // CHỜ thông báo (block vĩnh viễn cho đến khi có notify)
         if (xTaskNotifyWait(
-                0x00,              // Clear bits on entry (không dùng)
-                0xFFFFFFFF,        // Clear all bits on exit (luôn xóa notification)
-                &ulNotifiedValue,  // Nơi lưu trữ giá trị nhận được
-                0) == pdPASS) {    // Không cần block, chỉ kiểm tra nhanh (0 ticks)
-
-            // Nếu nhận được thông báo, cập nhật chu kỳ delay mới
-            // Giá trị gửi trong Notification là chu kỳ ms
+                0x00,
+                0xFFFFFFFF,
+                &ulNotifiedValue,
+                0   // CHỜ tới khi nhận tín hiệu
+            ) == pdPASS) 
+        {
             ulFlashDelay = ulNotifiedValue;
-            Serial.printf("LED Task: New flash delay set to %lu ms\n", ulFlashDelay);
+            Serial.printf("New LED delay: %lu ms\n", ulFlashDelay);
         }
-
-        // 2. Thực hiện nháy LED với delay hiện tại
+        if (ulFlashDelay == 0) {
+            led_off();
+            vTaskDelay(pdMS_TO_TICKS(3000));
+            continue;
+        }   
         led_on();
-        vTaskDelay(pdMS_TO_TICKS(ulFlashDelay / 2));  // Chia 2 vì nháy LED_ON/LED_OFF
-
+        vTaskDelay(pdMS_TO_TICKS(ulFlashDelay / 2));
         led_off();
         vTaskDelay(pdMS_TO_TICKS(ulFlashDelay / 2));
     }
 }
+
 void initLed() {
     pinMode(LED_BUILTIN, OUTPUT);
     led_off();

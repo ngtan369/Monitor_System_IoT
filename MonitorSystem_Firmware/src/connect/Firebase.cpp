@@ -1,74 +1,66 @@
+#define ENABLE_DATABASE
+#define ENABLE_USER_AUTH
+
 #include "Firebase.h"
+// Định nghĩa các đối tượng Firebase toàn cục (dùng chung)
+FirebaseData fbdo;
+FirebaseAuth auth;
+FirebaseConfig config;
 
+// --- HÀM KHỞI TẠO FIREBASE ---
+void setup_Firebase() {
+    
+    // 1. Cấu hình cơ bản
+    config.api_key = API_KEY;
+    config.database_url = DATABASE_URL;
 
-WiFiClientSecure ssl_client;
-FirebaseApp app;
-AsyncClient aClient(ssl_client); // Khởi tạo AsyncClient với ssl_client
-RealtimeDatabase Database;
+    // 2. Xác thực Ẩn danh (Anonymous Authentication)
+    // Đảm bảo Anonymous Sign-in đã được bật trên Firebase Console
+    auth.user.email = ""; // Để trống
+    auth.user.password = ""; // Để trống
+    config.signer.anonymous = true; 
 
-// Khởi tạo đối tượng xác thực ẩn danh
-AnonymousAuth anon_auth;
+    // 3. Khởi tạo và Bật Reconnect
+    Firebase.begin(&config, &auth);
+    Firebase.reconnectWiFi(true);
 
-unsigned long lastSendTime = 0;
-const unsigned long sendInterval = 10000;
-
-int intValue = 0;
-float floatValue = 0.01;
-String stringValue = "";
-
-void initFirebase() {
-    // Cấu hình SSL Client
-    ssl_client.setInsecure();
-    ssl_client.setConnectionTimeout(1000);
-    ssl_client.setHandshakeTimeout(5);
-
-    initializeApp(aClient, app, getAuth(user_auth), processData, "🔐 authTask");
-    app.getApp<RealtimeDatabase>(Database);
-    Database.url(DATABASE_URL);
-
-    // 4. Tạo Task
-    xTaskCreate(test, "FirebaseSend", 4096, NULL, 1, NULL);
+    // 4. Tạo Task gửi dữ liệu
+    xTaskCreate(sendDataTask, "FirebaseTask", 4096, NULL, 1, NULL);
+    Serial.println("Firebase Client Task đã khởi tạo.");
 }
 
-void test (void * pvParameters){
-    while(1){
-        // 1. Chạy vòng lặp chính của Firebase để xử lý kết nối, Token, và Events
-        app.loop();
+// --- TASK GỬI DỮ LIỆU (FreeRTOS Task) ---
+void sendDataTask(void *pvParameters) {
+    const TickType_t delayTime = pdMS_TO_TICKS(5000);
+    int counter = 0;
 
-        // 2. Kiểm tra nếu App đã sẵn sàng (Auth + Connection)
-        if (app.ready()){ 
-            unsigned long currentTime = millis();
-            if (currentTime - lastSendTime >= sendInterval){
-                lastSendTime = currentTime;
+    while (true) {
+        // 1. Kiểm tra kết nối WiFi và Firebase Ready
+        // Firebase.ready() kiểm tra cả WiFi và trạng thái Token
+        if (WiFi.isConnected() && Firebase.ready()) {
+            counter++;
 
-                stringValue = "value_" + String(currentTime);
-                Database.set<String>(aClient, "/test/string", stringValue, processData, "RTDB_Send_String");
-                // send an int
-                Database.set<int>(aClient, "/test/int", intValue, processData, "RTDB_Send_Int");
-                intValue++; //increment intValue in every loop
+            // 2. Tạo JSON Payload
+            FirebaseJson json;
+            float tempValue = 20.0 + (float)random(1, 100) / 10.0;
+            float humiValue = 50.0 + (float)random(1, 20) / 10.0;
+            
+            json.set("temperature", tempValue);
+            json.set("humidity", humiValue);
 
-                // send a string
-                floatValue = 0.01 + random (0,100);
-                Database.set<float>(aClient, "/test/float", floatValue, processData, "RTDB_Send_Float");
+            if (Firebase.RTDB.setJSON(&fbdo, "test", &json)) {
+                Serial.printf("Gửi thành công #%d: Temp=%.2f\n", counter, tempValue);
+            } else {
+                Serial.printf("Lỗi gửi Firebase #%d: %s\n", counter, fbdo.errorReason().c_str());
             }
+
+        } else if (!WiFi.isConnected()){
+            Serial.println("Client: Đang chờ kết nối WiFi...");
+        } else {
+            // Lỗi Token hoặc Initialisation
+            Serial.printf("Client: Lỗi Firebase hoặc Token: %s\n", fbdo.errorReason().c_str());
         }
-        vTaskDelay(pdMS_TO_TICKS(10)); 
+        
+        vTaskDelay(delayTime);
     }
-}
-
-void processData(AsyncResult &aResult) {
-    if (!aResult.isResult())
-        return;
-
-    if (aResult.isEvent())
-        Firebase.printf("Event task: %s, msg: %s, code: %d\n", aResult.uid().c_str(), aResult.eventLog().message().c_str(), aResult.eventLog().code());
-
-    if (aResult.isDebug())
-        Firebase.printf("Debug task: %s, msg: %s\n", aResult.uid().c_str(), aResult.debug().c_str());
-
-    if (aResult.isError())
-        Firebase.printf("Error task: %s, msg: %s, code: %d\n", aResult.uid().c_str(), aResult.error().message().c_str(), aResult.error().code());
-
-    if (aResult.available())
-        Firebase.printf("task: %s, payload: %s\n", aResult.uid().c_str(), aResult.c_str());
 }

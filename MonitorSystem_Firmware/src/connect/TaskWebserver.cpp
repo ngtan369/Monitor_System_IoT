@@ -34,27 +34,77 @@ bool saveWiFiToFS(const String& ssid, const String& password) {
     return true;
 }
 
-void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type,
-               void* arg, uint8_t* data, size_t len) {
+void sendRestartPopup() {
+    DynamicJsonDocument doc(64);
+    doc["wifi_ok"] = true;
+    String out;
+    serializeJson(doc, out);
+    ws.textAll(out);
+}
+
+void doWifiConnect(String ssid, String pass) {
+    WiFi.mode(WIFI_STA);
+    WiFi.disconnect();
+    delay(200);
+
+    WiFi.begin(ssid.c_str(), pass.c_str());
+    Serial.println("Connecting...");
+
+    unsigned long t0 = millis();
+    while (WiFi.status() != WL_CONNECTED && millis() - t0 < 8000) {
+        delay(200);
+    }
+
+    if (WiFi.status() == WL_CONNECTED) {
+        saveWiFiToFS(ssid, pass);
+        sendRestartPopup();  // gửi popup hỏi restart
+    }
+}
+
+void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
+               AwsEventType type, void* arg, uint8_t* data, size_t len)
+{
     if (type == WS_EVT_CONNECT) {
         client->text(getSensorJson());
-    } else if (type == WS_EVT_DATA) {
+        return;
+    }
+    if (type == WS_EVT_DATA) {
         AwsFrameInfo* info = (AwsFrameInfo*)arg;
-        if (info->final && info->index == 0 && info->len == len && info->opcode == WS_TEXT) {
-            String msg = String((char*)data);
-            if (msg == "get_data") {
-                client->text(getSensorJson());
-            } else if (msg.startsWith("wifi:")) {
-                DynamicJsonDocument doc(256);
-                DeserializationError err = deserializeJson(doc, msg.substring(5));
-                if (!err) {
-                    ssid = doc["ssid"].as<String>();
-                    password = doc["password"].as<String>();
-                    saveWiFiToFS(ssid, password);
-                    ESP.restart();
-                }
+        if (!info->final || info->opcode != WS_TEXT) return;
+        String msg = String((char*)data).substring(0, len);
+        // --- SCAN WiFi ---
+        if (msg == "wifi_scan") {
+            int n = WiFi.scanNetworks();
+            DynamicJsonDocument doc(2048);
+            JsonArray arr = doc.createNestedArray("scan");
+
+            for (int i = 0; i < n; i++) {
+                JsonObject o = arr.createNestedObject();
+                o["ssid"] = WiFi.SSID(i);
+                o["rssi"] = WiFi.RSSI(i);
+                o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
             }
+
+            String out;
+            serializeJson(doc, out);
+            client->text(out);
+            return;
         }
+
+        // --- Kết nối WiFi ---
+        if (msg.startsWith("wifi_connect:")) {
+            DynamicJsonDocument doc(256);
+            deserializeJson(doc, msg.substring(13));
+            String s = doc["ssid"].as<String>();
+            String p = doc["password"].as<String>();
+            doWifiConnect(s, p);
+            return;
+        }
+        // --- Restart yes ---
+        if (msg == "restart_yes") {
+            ESP.restart();
+        }
+        if (msg == "get_data") client->text(getSensorJson());
     }
 }
 
@@ -78,6 +128,7 @@ void setupOTA(AsyncWebServer& server) {
             Update.end(true);
         } });
 }
+
 void initWebserver() {
     ws.onEvent(onWsEvent);
     server.addHandler(&ws);

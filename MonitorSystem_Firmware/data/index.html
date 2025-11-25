@@ -316,14 +316,18 @@
             </div>
         </div>
 
-        <!-- Wi-Fi config page -->
         <div id="wifiPage" style="display: none;">
-            <h1>Cấu hình Wi-Fi</h1>
-            <form id="wifiForm" onsubmit="submitWiFi(event)">
-                <input type="text" id="newSSID" placeholder="Tên WiFi" required>
-                <input type="password" id="newPWD" placeholder="Password" required>
-                <button type="submit">Cập nhật Wi-Fi</button>
-            </form>
+            <h1>Cấu hình WiFi</h1>
+
+            <!-- SWITCH GẠT NGANG THAY CHO BUTTON 🔍 -->
+            <label class="switch">
+                <input type="checkbox" id="scanSwitch" onclick="toggleScan()">
+                <span class="slider round"></span>
+            </label>
+
+            <span id="scanLoading" class="spinner" style="display:none;"></span>
+
+            <ul id="wifiList" style="margin-top:20px; padding:0; list-style:none;"></ul>
             <p id="wifiMsg"></p>
         </div>
 
@@ -345,7 +349,72 @@
 
     <script>
         let ws;
+        let selectedSSID = "";
 
+        function scanWiFi() {
+            document.getElementById("scanLoading").style.display = "inline-block";
+            ws.send("wifi_scan");
+        }
+
+        function showWifiList(list) {
+            const ul = document.getElementById("wifiList");
+            ul.innerHTML = "";
+            list.forEach(w => {
+                const li = document.createElement("li");
+                li.style.padding = "10px";
+                li.style.border = "1px solid #ccc";
+                li.style.marginTop = "6px";
+                li.style.cursor = "pointer";
+                li.textContent = w.ssid + " (" + w.rssi + " dBm)" + (w.sec ? "" : " 🔓");
+                li.onclick = () => clickWifi(w.ssid, w.sec);
+                ul.appendChild(li);
+            });
+        }
+
+        function clickWifi(ssid, secured) {
+            selectedSSID = ssid;
+
+            if (!secured) {
+                ws.send("wifi_connect:" + JSON.stringify({ ssid: ssid, password: "" }));
+                return;
+            }
+
+            document.getElementById("popupSsid").innerText = ssid;
+            document.getElementById("pwdPopup").style.display = "block";
+        }
+
+        function confirmConnectWifi() {
+            const pwd = document.getElementById("popupPwd").value;
+            ws.send("wifi_connect:" + JSON.stringify({ ssid: selectedSSID, password: pwd }));
+            closePwdPopup();
+        }
+
+        function closePwdPopup() { document.getElementById("pwdPopup").style.display = "none"; }
+
+        function closeRestartPopup() { document.getElementById("restartPopup").style.display = "none"; }
+
+        ws.onmessage = function (event) {
+            const d = JSON.parse(event.data);
+
+            if (d.scan) {
+                document.getElementById("scanLoading").style.display = "none";
+                showWifiList(d.scan);
+            }
+
+            if (d.wifi_ok) {
+                document.getElementById("restartPopup").style.display = "block";
+            }
+
+            // giữ nguyên phần onmessage cũ
+            ['temp', 'humi', 'soil', 'distance', 'light'].forEach(id => {
+                if (typeof d[id] !== 'undefined') document.getElementById(id).innerText = d[id];
+            });
+
+            if (typeof d.mode !== 'undefined') {
+                document.getElementById('rgbModeSwitch').checked = d.mode;
+                document.getElementById('colorGrid').style.display = d.mode ? 'grid' : 'none';
+            }
+        };
         function connectWS() {
             ws = new WebSocket('ws://' + location.hostname + '/ws');
             ws.onopen = () => ws.send("get_data");
@@ -372,7 +441,22 @@
             if (ws && ws.readyState === 1) ws.send('mode_switch:' + val);
             //document.getElementById('colorGrid').style.display = val ? 'grid' : 'none';
         }
+        function toggleScan() {
+            let sw = document.getElementById("scanSwitch");
+            let loading = document.getElementById("scanLoading");
+            let list = document.getElementById("wifiList");
+            let msg = document.getElementById("wifiMsg");
 
+            if (sw.checked) {
+                // gọi logic cũ
+                scanWiFi();
+            } else {
+                // tắt scan → reset giao diện
+                loading.style.display = "none";
+                list.innerHTML = "";
+                msg.innerText = "";
+            }
+        }
         function setColor(color) {
             if (ws && ws.readyState === 1) ws.send('color:' + color);
             document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('selected'));
@@ -393,6 +477,7 @@
                 }, 3000);
             }
         }
+
         document.getElementById('otaForm').onsubmit = function (e) {
             e.preventDefault();
             const fileInput = document.getElementById('firmwareFile');
@@ -443,6 +528,31 @@
         setInterval(fetchData, 1000);
         window.onload = connectWS;
     </script>
+
+    <!-- Popup nhập mật khẩu -->
+    <div id="pwdPopup" style="
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center;">
+        <div style="background:#fff; padding:20px; border-radius:10px; width:300px;">
+            <h3 id="popupSsid"></h3>
+            <input id="popupPwd" type="password" placeholder="Mật khẩu Wi-Fi"
+                style="width:100%; padding:10px; margin-top:10px;">
+            <button onclick="submitPassword()" style="margin-top:15px; width:100%;">Kết nối</button>
+            <button onclick="closePwdPopup()" style="margin-top:10px; width:100%; background:#bbb;">Hủy</button>
+        </div>
+    </div>
+
+    <!-- Popup hỏi restart -->
+    <div id="restartPopup" style="
+    position:fixed; top:0; left:0; width:100%; height:100%;
+    background:rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center;">
+        <div style="background:#fff; padding:20px; border-radius:10px; width:300px;">
+            <h3>Kết nối thành công!</h3>
+            <p>Bạn có muốn khởi động lại ESP32?</p>
+            <button onclick="sendRestart(1)" style="margin-top:15px; width:100%;">Yes</button>
+            <button onclick="sendRestart(0)" style="margin-top:10px; width:100%; background:#bbb;">No</button>
+        </div>
+    </div>
 </body>
 
 </html>
