@@ -6,7 +6,7 @@ constexpr char AP_PASSWORD[] = "87654321";
 String ssid = "";
 String password = "";
 
-bool ap_mode = false;
+bool ap_mode = true;
 bool checkInternet(unsigned long timeoutMs = 3000) {
     HTTPClient http;
     http.setTimeout(timeoutMs);
@@ -50,6 +50,7 @@ void setup_AP() {
     WiFi.softAP(AP_SSID, AP_PASSWORD);
     Serial.print("AP IP address: ");
     Serial.println(WiFi.softAPIP());
+    vTaskDelay(10);
 }
 
 void setup_STA() {
@@ -66,21 +67,13 @@ void setup_STA() {
         Serial.println("IP address: ");
         Serial.println(WiFi.localIP());
     }
+    vTaskDelay(10);
 }
 
-void initWiFi() {
-    loadWiFiFromFS();
-    pinMode(BOOT_BUTTON, INPUT_PULLUP);
-    WiFi.mode(WIFI_STA);
-    setup_STA();
-}
-
-void test(){
-    WiFi.mode(WIFI_AP);
-    setup_AP();
-    initWebserver(); 
-}
 void Wifi_reconnect() {
+    if (ap_mode) {
+        return;
+    }
     if (digitalRead(BOOT_BUTTON) == 0) {
         uint32_t timepress = millis();
         while (digitalRead(BOOT_BUTTON) == 0) {
@@ -88,7 +81,7 @@ void Wifi_reconnect() {
                 ap_mode = true;
                 Serial.println("Vào chế độ cấu hình AP");
                 WiFi.disconnect(true);
-                WiFi.mode(WIFI_AP);
+                WiFi.mode(WIFI_AP_STA); // STA để dò wifi
                 setup_AP();
                 initWebserver();
                 xTaskNotify(xTaskLedHandle, FLASH_DELAY_AP_MODE, eSetValueWithOverwrite);
@@ -96,9 +89,6 @@ void Wifi_reconnect() {
             }
             vTaskDelay(10);
         }
-    }
-    if (ap_mode) {
-        return;
     }
 
     const wl_status_t status = WiFi.status();
@@ -118,3 +108,14 @@ void Wifi_reconnect() {
         xTaskNotify(xTaskLedHandle, ulTargetDelay, eSetValueWithOverwrite);
     }
 }
+
+void initWiFi() {
+    loadWiFiFromFS();
+    pinMode(BOOT_BUTTON, INPUT_PULLUP);
+    // WiFi.mode(WIFI_STA);
+    WiFi.mode(WIFI_AP_STA); // FOR TEST
+    // setup_STA();
+    setup_AP(); // FOR TEST
+    initWebserver();  // FOR TEST
+}
+

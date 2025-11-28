@@ -15,7 +15,6 @@
 extern String ssid;
 extern String password;
 
-void test();
 void initWiFi();
 void Wifi_reconnect();
 #endif /* INC_TASKWIFI_H_ */

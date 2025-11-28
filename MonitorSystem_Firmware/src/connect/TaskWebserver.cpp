@@ -2,17 +2,7 @@
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-
-String getSensorJson() {
-    String json = "{";
-    // json += "\"temp\":" + String(10) + ",";
-    // json += "\"humi\":" + String(10) + ",";
-    // json += "\"soil\":" + String(10) + ",";
-    // json += "\"distance\":" + String(10) + ",";
-    // json += "\"light\":" + String(10) + ",";
-    // json += "}";
-    return json;
-}
+bool needWifiScan = false;
 
 bool saveWiFiToFS(const String& ssid, const String& password) {
     DynamicJsonDocument doc(256);
@@ -34,77 +24,57 @@ bool saveWiFiToFS(const String& ssid, const String& password) {
     return true;
 }
 
-void sendRestartPopup() {
+void sendWifiStatus(String msg) {
     DynamicJsonDocument doc(64);
-    doc["wifi_ok"] = true;
+    doc[msg] = true;
     String out;
     serializeJson(doc, out);
     ws.textAll(out);
+    Serial.println("TEST 1");
 }
 
 void doWifiConnect(String ssid, String pass) {
-    WiFi.mode(WIFI_STA);
-    WiFi.disconnect();
-    delay(200);
-
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.println("Connecting...");
 
     unsigned long t0 = millis();
     while (WiFi.status() != WL_CONNECTED && millis() - t0 < 8000) {
-        delay(200);
+        vTaskDelay(200);
     }
 
     if (WiFi.status() == WL_CONNECTED) {
         saveWiFiToFS(ssid, pass);
-        sendRestartPopup();  // gửi popup hỏi restart
+        sendWifiStatus("wifi_ok");  // gửi popup hỏi restart
+    } else {
+        sendWifiStatus("wifi_fail");
     }
 }
 
 void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
                AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
-    if (type == WS_EVT_CONNECT) {
-        client->text(getSensorJson());
-        return;
-    }
     if (type == WS_EVT_DATA) {
         AwsFrameInfo* info = (AwsFrameInfo*)arg;
-        if (!info->final || info->opcode != WS_TEXT) return;
+        if (!info->final || info->opcode != WS_TEXT) 
+            return;
         String msg = String((char*)data).substring(0, len);
+        msg.trim(); // remove newline/whitespace
+        Serial.printf("WS_RX from client %u: [%s]\n", client->id(), msg.c_str());
         // --- SCAN WiFi ---
         if (msg == "wifi_scan") {
-            int n = WiFi.scanNetworks();
-            DynamicJsonDocument doc(2048);
-            JsonArray arr = doc.createNestedArray("scan");
-
-            for (int i = 0; i < n; i++) {
-                JsonObject o = arr.createNestedObject();
-                o["ssid"] = WiFi.SSID(i);
-                o["rssi"] = WiFi.RSSI(i);
-                o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-            }
-
-            String out;
-            serializeJson(doc, out);
-            client->text(out);
-            return;
+            Serial.println("Scanning wifi ..."); // for debug
+            needWifiScan = true;
         }
-
-        // --- Kết nối WiFi ---
-        if (msg.startsWith("wifi_connect:")) {
+        else if (msg.startsWith("wifi_connect:")) {
             DynamicJsonDocument doc(256);
             deserializeJson(doc, msg.substring(13));
             String s = doc["ssid"].as<String>();
             String p = doc["password"].as<String>();
             doWifiConnect(s, p);
-            return;
         }
-        // --- Restart yes ---
-        if (msg == "restart_yes") {
+        else if (msg == "restart_yes") {
             ESP.restart();
         }
-        if (msg == "get_data") client->text(getSensorJson());
     }
 }
 

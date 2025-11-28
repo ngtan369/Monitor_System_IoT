@@ -10,4 +10,6 @@
 #include "TaskWifi.h"
 void initWebserver();
 
+extern bool needWifiScan;
+extern AsyncWebSocket ws;
 #endif

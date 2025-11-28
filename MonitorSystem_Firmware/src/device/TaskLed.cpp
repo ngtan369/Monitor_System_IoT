@@ -67,7 +67,7 @@ void Led_Indicate_Task(void* pvParameters) {
             ) == pdPASS) 
         {
             ulFlashDelay = ulNotifiedValue;
-            Serial.printf("New LED delay: %lu ms\n", ulFlashDelay);
+            // Serial.printf("New LED delay: %lu ms\n", ulFlashDelay);
         }
         if (ulFlashDelay == 0) {
             led_off();
