@@ -1,5 +1,5 @@
 {
     "version": "1.0.0",
-    "url": "https://raw.githubusercontent.com/<user>/<repo>/main/release/v1.0.0.bin",
-    "notes": "Initial stable version"
+    "url": "https://github.com/TrungTan369/Embedded_System_Course/releases/latest/download/firmware.bin",
+    "notes": "Initial version"
 }
