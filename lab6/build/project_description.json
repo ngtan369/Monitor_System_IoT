@@ -1,7 +1,7 @@
 {
     "version":            "1.2",
     "project_name":       "lab6",
-    "project_version":    "a4ab29d-dirty",
+    "project_version":    "04d190f-dirty",
     "project_path":       "/home/tan/course/htn251/lab6",
     "idf_path":           "/home/tan/esp-idf",
     "build_dir":          "/home/tan/course/htn251/lab6/build",

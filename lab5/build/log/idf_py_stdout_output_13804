@@ -1,0 +1,74 @@
+Command: /home/tan/.espressif/python_env/idf5.5_py3.12_env/bin/python /home/tan/esp-idf/tools/idf_monitor.py -p /dev/ttyUSB0 -b 115200 --toolchain-prefix xtensa-esp32-elf- --target esp32 --revision 0 /home/tan/course/htn251/lab5/build/lab5.elf /home/tan/course/htn251/lab5/build/bootloader/bootloader.elf -m '/home/tan/.espressif/python_env/idf5.5_py3.12_env/bin/python' '/home/tan/esp-idf/tools/idf.py' '-p' '/dev/ttyUSB0'
+: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM
+[0;32mI (248) heap_�ets Jun  8 2016 00:22:57[0m
+
+rst:0x1 (POWERON_RESET),boot:0x13 (SPI_FAST_FLASH_BOOT)
+configsip: 0, SPIWP:0xee
+clk_drv:0x00,q_drv:0x00,d_drv:0x00,cs0_drv:0x00,hd_drv:0x00,wp_drv:0x00
+mode:DIO, clock div:2
+load:0x3fff0030,len:6380
+ho 0 tail 12 room 4
+load:0x40078000,len:15916
+load:0x40080400,len:3860
+entry 0x40080638
+[0;32mI (29) boot: ESP-IDF v5.5 2nd stage bootloader[0m
+[0;32mI (29) boot: compile time Nov 30 2025 17:37:45[0m
+[0;32mI (29) boot: Multicore bootloader[0m
+[0;32mI (30) boot: chip revision: v1.0[0m
+[0;32mI (33) boot.esp32: SPI Speed      : 40MHz[0m
+[0;32mI (37) boot.esp32: SPI Mode       : DIO[0m
+[0;32mI (40) boot.esp32: SPI Flash Size : 2MB[0m
+[0;32mI (44) boot: Enabling RNG early entropy source...[0m
+[0;32mI (48) boot: Partition Table:[0m
+[0;32mI (51) boot: ## Label            Usage          Type ST Offset   Length[0m
+[0;32mI (57) boot:  0 nvs              WiFi data        01 02 00009000 00006000[0m
+[0;32mI (64) boot:  1 phy_init         RF data          01 01 0000f000 00001000[0m
+[0;32mI (70) boot:  2 factory          factory app      00 00 00010000 00100000[0m
+[0;32mI (77) boot: End of partition table[0m
+[0;32mI (80) esp_image: segment 0: paddr=00010020 vaddr=3f400020 size=09ab8h ( 39608) map[0m
+[0;32mI (101) esp_image: segment 1: paddr=00019ae0 vaddr=3ff80000 size=00020h (    32) load[0m
+[0;32mI (101) esp_image: segment 2: paddr=00019b08 vaddr=3ffb0000 size=023c8h (  9160) load[0m
+[0;32mI (108) esp_image: segment 3: paddr=0001bed8 vaddr=40080000 size=04140h ( 16704) load[0m
+[0;32mI (119) esp_image: segment 4: paddr=00020020 vaddr=400d0020 size=133cch ( 78796) map[0m
+[0;32mI (147) esp_image: segment 5: paddr=000333f4 vaddr=40084140 size=0968ch ( 38540) load[0m
+[0;32mI (169) boot: Loaded app from partition at offset 0x10000[0m
+[0;32mI (169) boot: Disabling RNG early entropy source...[0m
+[0;32mI (179) cpu_start: Multicore app[0m
+[0;32mI (188) cpu_start: Pro cpu start user code[0m
+[0;32mI (188) cpu_start: cpu freq: 160000000 Hz[0m
+[0;32mI (188) app_init: Application information:[0m
+[0;32mI (188) app_init: Project name:     lab5[0m
+[0;32mI (191) app_init: App version:      04d190f[0m
+[0;32mI (195) app_init: Compile time:     Nov 30 2025 17:37:31[0m
+[0;32mI (200) app_init: ELF file SHA256:  fd952cb1b...[0m
+[0;32mI (205) app_init: ESP-IDF:          v5.5[0m
+[0;32mI (208) efuse_init: Min chip rev:     v0.0[0m
+[0;32mI (212) efuse_init: Max chip rev:     v3.99 [0m
+[0;32mI (216) efuse_init: Chip rev:         v1.0[0m
+[0;32mI (220) heap_init: Initializing. RAM available for dynamic allocation:[0m
+[0;32mI (226) heap_init: At 3FFAE6E0 len 00001920 (6 KiB): DRAM[0m
+[0;32mI (231) heap_init: At 3FFB2DC0 len 0002D240 (180 KiB): DRAM[0m
+[0;32mI (237) heap_init: At 3FFE0440 len 00003AE0 (14 KiB): D/IRAM[0m
+[0;32mI (242) heap_init: At 3FFE4350 len 0001BCB0 (111 KiB): D/IRAM[0m
+[0;32mI (248) heap_init: At 4008D7CC len 00012834 (74 KiB): IRAM[0m
+[0;32mI (254) spi_flash: detected chip: generic[0m
+[0;32mI (256) spi_flash: flash io: dio[0m
+[0;33mW (259) spi_flash: Detected size(4096k) larger than the size in the binary image header(2048k). Using the size in the binary image header.[0m
+[0;32mI (272) main_task: Started on CPU0[0m
+[0;32mI (282) main_task: Calling app_main()[0m
+[0;32mI (282) main_task: Returned from app_main()[0m
+1: ahihi
+1: ihaha
+2: ahihi
+2: ihaha
+3: ahihi
+4: ahihi
+3: ihaha
+5: ahihi
+4: ihaha
+6: ahihi
+7: ahihi
+5: ihaha
+8: ahihi
+9: ahihi
+10: ahihi

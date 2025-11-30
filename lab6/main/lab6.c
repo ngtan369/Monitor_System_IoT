@@ -13,15 +13,12 @@
 #include "nvs_flash.h"
 #include "tcpip_adapter.h"
 
-//================= CẤU HÌNH WIFI =================
+
 #define WIFI_SSID      "ESP32_LAB6"
 #define WIFI_PASS      "12345678"
 
-//=================================================
+tic const char *TAG = "LAB06_WIFI";
 
-static const char *TAG = "LAB06_WIFI";
-
-// Hàm in thông tin AP từ kết quả scan
 static void print_ap_info(wifi_ap_record_t *list, uint16_t ap_count)
 {
     for (int i = 0; i < ap_count; i++) {
@@ -55,14 +52,11 @@ static void print_ap_info(wifi_ap_record_t *list, uint16_t ap_count)
     }
 }
 
-// Event handler theo đúng tài liệu lab (system_event_t)
 static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 {
     switch (event->event_id) {
-
     case SYSTEM_EVENT_STA_START:
         printf("[EVENT] STA_START -> Bắt đầu scan WiFi...\n");
-        // Cấu hình scan
         {
             wifi_scan_config_t scanConf = {
                 .ssid = NULL,
@@ -112,8 +106,6 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
         break;
 
     default:
-        // Bạn có thể in thêm debug nếu muốn
-        // printf("[EVENT] id=%d\n", event->event_id);
         break;
     }
 
@@ -122,10 +114,8 @@ static esp_err_t wifi_event_handler(void *ctx, system_event_t *event)
 
 void app_main(void)
 {
-    // Khởi tạo NVS (lưu cấu hình WiFi)
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        // Trường hợp NVS lỗi, erase rồi init lại
         ESP_ERROR_CHECK(nvs_flash_erase());
         ret = nvs_flash_init();
     }
@@ -150,20 +140,14 @@ void app_main(void)
     // Cấu hình SSID & Password cho STA
     wifi_config_t sta_config = {
         .sta = {
-            // nhớ không được bỏ dấu "" ở đây
             .ssid = WIFI_SSID,
             .password = WIFI_PASS,
             .bssid_set = 0,
         }
     };
     ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &sta_config));
-
-    // Start WiFi → sẽ phát sinh event SYSTEM_EVENT_STA_START
     ESP_ERROR_CHECK(esp_wifi_start());
 
     printf("[LAB06] WiFi STA đã start, chờ event...\n");
-
-    // Không cần vòng while ở đây, FreeRTOS sẽ chạy scheduler
-    // Nếu muốn, có thể thêm 1 task riêng để làm việc sau khi đã có IP.
 }
 
