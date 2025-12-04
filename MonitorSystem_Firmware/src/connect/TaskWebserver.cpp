@@ -3,6 +3,8 @@
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 bool needWifiScan = false;
+String ota_version_link = "https://raw.githubusercontent.com/TrungTan369/Embedded_System_Course/main/latest.json";
+String g_fwVersion = "0.0";
 
 void sendConfigJson() {
     if (!LittleFS.begin()) {
@@ -20,6 +22,12 @@ void sendConfigJson() {
     }
     String content = f.readString();
     f.close();
+    StaticJsonDocument<256> doc;
+    DeserializationError err = deserializeJson(doc, content);
+    if (!err) {
+        const char* fw = doc["fw_version"];
+        if (fw) g_fwVersion = fw;
+    }
     ws.textAll(content);
 }
 
@@ -49,10 +57,9 @@ void sendWifiStatus(String msg) {
     String out;
     serializeJson(doc, out);
     ws.textAll(out);
-    Serial.println("TEST 1");
 }
 
-void doWifiConnect(String ssid, String pass) {
+void scan_wifi(String ssid, String pass) {
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.println("Connecting...");
 
@@ -67,6 +74,44 @@ void doWifiConnect(String ssid, String pass) {
     } else {
         sendWifiStatus("wifi_fail");
     }
+}
+
+bool checkAndReportLatestVersion() {
+    if (WiFi.status() != WL_CONNECTED) 
+        return false;
+    HTTPClient http;
+    http.begin(ota_version_link);
+    int code = http.GET();
+    if (code != HTTP_CODE_OK) { 
+        http.end();
+        Serial.println("OTA check link failed");
+        return false; 
+    } else {
+        Serial.println("OTA check link OK");
+    }
+
+    String payload = http.getString();
+    http.end();
+    StaticJsonDocument<512> doc;
+    if (deserializeJson(doc, payload)) 
+        return false;
+    const char* latestVer = doc["ver"];
+    const char* url       = doc["url"];
+    const char* note     = doc["note"];
+    const char* createAt     = doc["createAt"];
+    if (!latestVer || !url) 
+        return false;
+    // gửi thông tin lên WebSocket cho UI
+    StaticJsonDocument<256> out;
+    out["cur_ver"]    = g_fwVersion;
+    out["latest_ver"] = latestVer;
+    out["has_update"] = String(latestVer) != g_fwVersion;
+    out["note"]      = note ? note : "1";
+    out["createAt"]      = createAt;
+    String msg;
+    serializeJson(out, msg);
+    ws.textAll(msg);
+    return true;
 }
 
 void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
@@ -89,13 +134,19 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
             deserializeJson(doc, msg.substring(13));
             String s = doc["ssid"].as<String>();
             String p = doc["password"].as<String>();
-            doWifiConnect(s, p);
+            scan_wifi(s, p);
         }
         else if (msg == "restart") {
             ESP.restart();
         }
         else if (msg == "get_config") {
             sendConfigJson();
+        }else if (msg == "ota_check") {
+            checkAndReportLatestVersion();
+            Serial.println("test 1");
+        } else if (msg == "update") {
+            bool otaFromUrl()
+
         }
     }
 }
@@ -143,6 +194,5 @@ void initWebserver() {
     server.addHandler(&ws);
     server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
     server.begin();
-    setupOTA(server);
     Serial.println("WebServer + WebSocket started");
 }
