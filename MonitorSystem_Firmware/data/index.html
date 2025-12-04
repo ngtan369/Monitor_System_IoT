@@ -572,7 +572,7 @@
         let wsQueue = [];
         let restartTimer = null;
         let currentFwVersion = null;
-        const latestJsonUrl = "https://raw.githubusercontent.com/TrungTan369/Embedded_System_Course/main/lastest.json";
+        const latestJsonUrl = "https://raw.githubusercontent.com/TrungTan369/Embedded_System_Course/refs/heads/main/latest.json";
         let latestFwVersion = null;
         let latestNotes = "";
         function connectWS() {
@@ -713,6 +713,7 @@
         function closeWifiFailPopup() {
             document.getElementById("wifiFailPopup").style.display = "none";
         }
+
         async function fetchLatestVersion() {
             try {
                 const res = await fetch(latestJsonUrl);
@@ -721,11 +722,12 @@
                     return;
                 }
                 const j = await res.json();
-                latestFwVersion = j.version || null;
-                latestNotes = j.notes || "";
+                latestFwVersion = j.ver || null;
+                latestNotes = j.note || "";
 
                 // Sau khi có currentFwVersion + latestFwVersion, so sánh
                 compareVersionsAndShowStatus();
+                console.log("latest.json:", j, "latestFwVersion:", latestFwVersion);
             } catch (e) {
                 console.error("Error fetching lastest.json:", e);
             }

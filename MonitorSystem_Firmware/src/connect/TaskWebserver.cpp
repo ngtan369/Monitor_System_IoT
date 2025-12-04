@@ -103,22 +103,39 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
 void handleRoot(AsyncWebServerRequest* request) {
     request->send(LittleFS, "/index.html", "text/html");
 }
+//---------------------- OTA from URL ---------------------
+bool otaFromUrl(const String &binUrl) {
+    HTTPClient http;
+    http.begin(binUrl);
+    int httpCode = http.GET();
+    if (httpCode != HTTP_CODE_OK) {
+        http.end();
+        Serial.printf("OTA: HTTP code %d\n", httpCode);
+        return false;
+    }
 
-void setupOTA(AsyncWebServer& server) {
-    server.on("/update", HTTP_POST, [](AsyncWebServerRequest* request) {
-        bool shouldReboot = !Update.hasError();
-        request->send(200, "text/html", shouldReboot ? "OK" : "FAIL");
-        if (shouldReboot) {
-            delay(1000);
-            ESP.restart();
-        } }, [](AsyncWebServerRequest* request, String filename, size_t index, uint8_t* data, size_t len, bool final) {
-        if (!index) {
-            Update.begin(UPDATE_SIZE_UNKNOWN);
-        }
-        Update.write(data, len);
-        if (final) {
-            Update.end(true);
-        } });
+    int contentLength = http.getSize();
+    WiFiClient *client = http.getStreamPtr();
+
+    if (!Update.begin(contentLength)) {
+        Serial.println("OTA: Update.begin failed");
+        http.end();
+        return false;
+    }
+
+    size_t written = Update.writeStream(*client);
+    bool endOk = Update.end();
+
+    http.end();
+
+    if (!endOk || Update.hasError()) {
+        Serial.printf("OTA: Update error. written=%u\n", (unsigned)written);
+        return false;
+    }
+
+    Serial.println("OTA: Update success, restarting...");
+    ESP.restart();
+    return true; // thực tế sẽ không chạy đến đây vì restart
 }
 
 void initWebserver() {
