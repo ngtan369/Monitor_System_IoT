@@ -4,6 +4,25 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 bool needWifiScan = false;
 
+void sendConfigJson() {
+    if (!LittleFS.begin()) {
+        Serial.println("Failed to mount LittleFS in sendConfigJson");
+        return;
+    }
+    if (!LittleFS.exists("/config.json")) {
+        Serial.println("config.json not found");
+        return;
+    }
+    File f = LittleFS.open("/config.json", "r");
+    if (!f) {
+        Serial.println("Failed to open config.json");
+        return;
+    }
+    String content = f.readString();
+    f.close();
+    ws.textAll(content);
+}
+
 bool saveWiFiToFS(const String& ssid, const String& password) {
     DynamicJsonDocument doc(256);
     doc["ssid"] = ssid;
@@ -44,7 +63,7 @@ void doWifiConnect(String ssid, String pass) {
 
     if (WiFi.status() == WL_CONNECTED) {
         saveWiFiToFS(ssid, pass);
-        sendWifiStatus("wifi_ok");  // gửi popup hỏi restart
+        sendWifiStatus("wifi_ok"); 
     } else {
         sendWifiStatus("wifi_fail");
     }
@@ -72,8 +91,11 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
             String p = doc["password"].as<String>();
             doWifiConnect(s, p);
         }
-        else if (msg == "restart_yes") {
+        else if (msg == "restart") {
             ESP.restart();
+        }
+        else if (msg == "get_config") {
+            sendConfigJson();
         }
     }
 }

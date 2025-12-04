@@ -64,6 +64,39 @@
             color: #007acc;
         }
 
+        .card {
+            max-width: 420px;
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0 4px 18px rgba(0, 0, 0, 0.08);
+            padding: 20px 22px;
+            margin-top: 10px;
+        }
+
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #eef1f5;
+        }
+
+        .card-row:last-child {
+            border-bottom: none;
+        }
+
+        .card-label {
+            font-weight: 600;
+            color: #455a64;
+        }
+
+        .card-value {
+            color: #263238;
+            max-width: 55%;
+            text-align: right;
+            word-break: break-word;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
@@ -349,47 +382,127 @@
             background: linear-gradient(90deg, #005b99 60%, #007acc 100%);
             box-shadow: 0 4px 16px rgba(0, 0, 0, 0.13);
         }
+
+        .wifi-list-container {
+            max-width: 360px;
+            margin-top: 20px;
+        }
+
+        #wifiList {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .wifi-item {
+            padding: 10px 12px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            margin-top: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #fff;
+            transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+        }
+
+        .wifi-item:hover {
+            background: #f0f7ff;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .wifi-ssid {
+            font-weight: 500;
+        }
+
+        .wifi-rssi {
+            font-size: 13px;
+            color: #666;
+        }
+
+        /* Home card styles */
+        .card {
+            max-width: 520px;
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+            padding: 20px 24px;
+            margin-top: 20px;
+        }
+
+        .card-header {
+            font-size: 18px;
+            font-weight: 600;
+            color: #007acc;
+            margin-bottom: 14px;
+        }
+
+        .card-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #e3e6ec;
+        }
+
+        .card-row:last-child {
+            border-bottom: none;
+        }
+
+        .card-label {
+            font-weight: 500;
+            color: #555;
+        }
+
+        .card-value {
+            color: #222;
+            font-weight: 500;
+        }
+
+        .card-value.muted {
+            color: #888;
+            font-weight: 400;
+        }
     </style>
 </head>
 
 <body>
     <div class="sidebar">
         <h2>ESP32</h2>
-        <button class="active" onclick="showPage('dashboard', event)">Dashboard</button>
+        <button class="active" onclick="showPage('Home', event)">Home</button>
         <button onclick="showPage('wifi', event)">Cấu hình Wi-Fi</button>
         <button onclick="showPage('ota')">Nạp Firmware</button>
     </div>
 
     <div class="content">
-        <!-- Dashboard page -->
-        <div id="dashboardPage"><!-- hard code - tạm thời -->
-            <h1>Dashboard</h1>
-            <table>
-                <tr>
-                    <th>Sensor</th>
-                    <th>Value</th>
-                </tr>
-                <tr>
-                    <td>Nhiệt độ</td>
-                    <td id="temp">--</td>
-                </tr>
-                <tr>
-                    <td>Độ ẩm</td>
-                    <td id="humi">--</td>
-                </tr>
-                <tr>
-                    <td>Độ ẩm đất</td>
-                    <td id="soil">--</td>
-                </tr>
-                <tr>
-                    <td>Khoảng cách</td>
-                    <td id="distance">--</td>
-                </tr>
-                <tr>
-                    <td>Ánh sáng</td>
-                    <td id="light">--</td>
-                </tr>
-            </table>
+        <!-- Home page -->
+        <div id="Home">
+            <h1>Thông tin hệ thống</h1>
+            <div class="card">
+                <div class="card-header">Cấu hình thiết bị</div>
+                <div class="card-row">
+                    <span class="card-label">Tên thiết bị</span>
+                    <span class="card-value" id="cfg_device_name">--</span>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">Firmware</span>
+                    <span class="card-value" id="cfg_fw_version">--</span>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">User</span>
+                    <span class="card-value" id="cfg_user">--</span>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">System ID</span>
+                    <span class="card-value" id="cfg_sys_id">--</span>
+                </div>
+                <div class="card-row">
+                    <span class="card-label">Địa chỉ</span>
+                    <span class="card-value" id="cfg_address">--</span>
+                </div>
+            </div>
         </div>
 
         <div id="wifiPage" style="display: none;">
@@ -406,7 +519,9 @@
 
             <span id="scanLoading" class="spinner" style="display:none;"></span>
 
-            <ul id="wifiList" style="margin-top:20px; padding:0; list-style:none;"></ul>
+            <div class="wifi-list-container">
+                <ul id="wifiList"></ul>
+            </div>
             <p id="wifiMsg"></p>
         </div>
 
@@ -441,11 +556,18 @@
     <!-- POPUP RESTART -->
     <div id="restartPopup" class="popup-overlay">
         <div class="popup-box">
-            <h3 class="popup-title">Kết nối thành công!</h3>
-            <p>Bạn có muốn khởi động lại ESP32?</p>
+            <h3 class="popup-title">Đã kết nối Wi‑Fi thành công!</h3>
+            <p id="wifiInfoText" style="margin-bottom:8px;font-size:14px;color:#333;"></p>
+            <p>Thiết bị sẽ tự khởi động lại sau <span id="restartCountdown">10</span> giây...</p>
+        </div>
+    </div>
 
-            <button onclick="sendRestart(1)" class="btn-blue">Yes</button>
-            <button onclick="sendRestart(0)" class="btn-gray">No</button>
+    <!-- POPUP WIFI FAIL -->
+    <div id="wifiFailPopup" class="popup-overlay">
+        <div class="popup-box">
+            <h3 class="popup-title">Kết nối Wi‑Fi thất bại</h3>
+            <p>Vui lòng kiểm tra lại mật khẩu hoặc chọn mạng khác.</p>
+            <button class="btn-blue" onclick="closeWifiFailPopup()">Đóng</button>
         </div>
     </div>
 
@@ -453,26 +575,53 @@
         let ws;
         let selectedSSID = "";
         let wsQueue = [];
+        let restartTimer = null;
 
         function connectWS() {
             ws = new WebSocket('ws://' + location.hostname + '/ws');
             ws.onmessage = function (event) {
                 const d = JSON.parse(event.data);
+                if (d.device_name || d.fw_version || d.sys_id) {
+                    document.getElementById('cfg_device_name').innerText = d.device_name || '--';
+                    document.getElementById('cfg_fw_version').innerText = d.fw_version || '--';
+                    document.getElementById('cfg_user').innerText = d.user || '--';
+                    document.getElementById('cfg_sys_id').innerText = d.sys_id || '--';
+                    document.getElementById('cfg_address').innerText = d.address || '--';
+                }
                 if (d.scan) {
                     document.getElementById("scanLoading").style.display = "none";
                     document.getElementById("iconRefreshScan").style.display = "inline";
                     showWifiList(d.scan);
                 }
                 if (d.wifi_ok) {
-                    document.getElementById("restartPopup").style.display = "flex";
+                    const infoEl = document.getElementById("wifiInfoText");
+                    if (infoEl) infoEl.innerText = "SSID mới: " + selectedSSID;
+                    const popup = document.getElementById("restartPopup");
+                    const cdEl = document.getElementById("restartCountdown");
+                    let remain = 10;
+                    if (cdEl) cdEl.textContent = remain;
+                    popup.style.display = "flex";
+
+                    if (restartTimer) clearInterval(restartTimer);
+                    restartTimer = setInterval(() => {
+                        remain--;
+                        if (cdEl) cdEl.textContent = remain;
+                        if (remain <= 0) {
+                            clearInterval(restartTimer);
+                            restartTimer = null;
+                            try { ws.send("restart"); } catch (e) { }
+                            popup.style.display = "none";
+                        }
+                    }, 1000);
                 }
                 if (d.wifi_fail) {
-                    // TO DO
+                    document.getElementById("wifiFailPopup").style.display = "flex";
                 }
             };
             ws.onopen = function () {
                 console.log("WS Connected");
                 while (wsQueue.length > 0) ws.send(wsQueue.shift());
+                ws.send("get_config"); // yêu cầu ESP32 gửi config.json ngay khi mở WS
             };
             ws.onclose = () => setTimeout(connectWS, 1000);
         }
@@ -495,11 +644,9 @@
             ul.innerHTML = "";
             list.forEach(w => {
                 const li = document.createElement("li");
-                li.style.padding = "10px";
-                li.style.border = "1px solid #ccc";
-                li.style.marginTop = "6px";
-                li.style.cursor = "pointer";
-                li.textContent = w.ssid + " (" + w.rssi + " dBm)" + (w.sec ? "" : " 🔓");
+                li.className = "wifi-item";
+                const lock = w.sec ? " 🔒" : "";
+                li.innerHTML = `<span class="wifi-ssid">${w.ssid}</span><span class="wifi-rssi">${w.rssi} dBm${lock}</span>`;
                 li.onclick = () => clickWifi(w.ssid, w.sec);
                 ul.appendChild(li);
             });
@@ -507,7 +654,6 @@
 
         function clickWifi(ssid, secured) {
             selectedSSID = ssid;
-
             if (!secured) {
                 ws.send("wifi_connect:" + JSON.stringify({ ssid: ssid, password: "" }));
                 return;
@@ -526,10 +672,6 @@
         function closePwdPopup() {
             document.getElementById("popupPwd").value = "";
             document.getElementById("pwdPopup").style.display = "none";
-        }
-
-        function closeRestartPopup() {
-            document.getElementById("restartPopup").style.display = "none";
         }
 
         function toggleScan() {
@@ -565,10 +707,6 @@
             list.innerHTML = "";
             msg.innerText = "";
             safeSend("wifi_scan");
-        }
-        function sendRestart(flag) {
-            ws.send("restart:" + (flag ? "1" : "0"));
-            closeRestartPopup();
         }
 
         document.getElementById('otaForm').onsubmit = function (e) {
@@ -612,14 +750,20 @@
         };
 
         function showPage(page, event) {
-            document.getElementById('dashboardPage').style.display = (page === 'dashboard') ? 'block' : 'none';
+            document.getElementById('Home').style.display = (page === 'Home') ? 'block' : 'none';
             document.getElementById('wifiPage').style.display = (page === 'wifi') ? 'block' : 'none';
             document.getElementById('otaPage').style.display = (page === 'ota') ? 'block' : 'none';
             document.querySelectorAll('.sidebar button').forEach(btn => btn.classList.remove('active'));
             event.target.classList.add('active');
         }
 
-        window.onload = connectWS;
+        function closeWifiFailPopup() {
+            document.getElementById("wifiFailPopup").style.display = "none";
+        }
+
+        window.onload = function () {
+            connectWS();
+        };
     </script>
 </body>
 
