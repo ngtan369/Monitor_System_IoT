@@ -114,7 +114,7 @@ void initWiFi() {
     pinMode(BOOT_BUTTON, INPUT_PULLUP);
     // WiFi.mode(WIFI_STA);
     WiFi.mode(WIFI_AP_STA); // FOR TEST
-    // setup_STA();
+    setup_STA();
     setup_AP(); // FOR TEST
     initWebserver();  // FOR TEST
 }

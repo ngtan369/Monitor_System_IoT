@@ -477,7 +477,6 @@
     </div>
 
     <div class="content">
-        <!-- Home page -->
         <div id="Home">
             <h1>Thông tin hệ thống</h1>
             <div class="card">
@@ -525,18 +524,14 @@
             <p id="wifiMsg"></p>
         </div>
 
-        <div id="otaPage" style="display: none;">
-            <h1>Nạp Firmware (OTA)</h1>
-            <form id="otaForm">
-                <input type="file" name="firmware" id="firmwareFile" required style="margin-bottom:16px;">
-                <button type="submit">Nạp Firmware</button>
-                <div id="otaProgressBar"
-                    style="width:80%;height:18px;background:#eee;border-radius:9px;margin:16px auto;display:none;">
-                    <div id="otaProgress"
-                        style="height:100%;width:0%;background:#007acc;border-radius:9px;text-align:center;color:white;font-size:13px;line-height:18px;">
-                    </div>
-                </div>
-            </form>
+        <div id="otaPage" style="display:none;">
+            <h1>Cài đặt Firmware</h1>
+
+            <div id="otaInfo" style="margin-bottom:12px;font-size:14px;color:#333;">
+                <div>Phiên bản hiện tại: <span id="curVerText">--</span></div>
+                <div>Phiên bản mới nhất: <span id="latestVerText">--</span></div>
+                <div id="otaStatusText" style="margin-top:4px;color:#00796b;"></div>
+            </div>
             <p id="otaMsg"></p>
         </div>
     </div>
@@ -576,7 +571,10 @@
         let selectedSSID = "";
         let wsQueue = [];
         let restartTimer = null;
-
+        let currentFwVersion = null;
+        const latestJsonUrl = "https://raw.githubusercontent.com/TrungTan369/Embedded_System_Course/main/lastest.json";
+        let latestFwVersion = null;
+        let latestNotes = "";
         function connectWS() {
             ws = new WebSocket('ws://' + location.hostname + '/ws');
             ws.onmessage = function (event) {
@@ -584,6 +582,10 @@
                 if (d.device_name || d.fw_version || d.sys_id) {
                     document.getElementById('cfg_device_name').innerText = d.device_name || '--';
                     document.getElementById('cfg_fw_version').innerText = d.fw_version || '--';
+                    if (d.fw_version) {
+                        currentFwVersion = d.fw_version;
+                        compareVersionsAndShowStatus();  // nếu latest đã tải rồi thì sẽ cập nhật
+                    }
                     document.getElementById('cfg_user').innerText = d.user || '--';
                     document.getElementById('cfg_sys_id').innerText = d.sys_id || '--';
                     document.getElementById('cfg_address').innerText = d.address || '--';
@@ -708,47 +710,49 @@
             msg.innerText = "";
             safeSend("wifi_scan");
         }
-
-        document.getElementById('otaForm').onsubmit = function (e) {
-            e.preventDefault();
-            const fileInput = document.getElementById('firmwareFile');
-            const file = fileInput.files[0];
-            if (!file) return;
-
-            const xhr = new XMLHttpRequest();
-            xhr.open("POST", "/update", true);
-
-            // Hiển thị thanh tiến độ
-            document.getElementById('otaProgressBar').style.display = "block";
-            document.getElementById('otaProgress').style.width = "0%";
-            document.getElementById('otaProgress').innerText = "0%";
-            document.getElementById('otaMsg').innerText = "Đang nạp firmware, vui lòng chờ...";
-
-            xhr.upload.onprogress = function (evt) {
-                if (evt.lengthComputable) {
-                    const percent = Math.round((evt.loaded / evt.total) * 100);
-                    document.getElementById('otaProgress').style.width = percent + "%";
-                    document.getElementById('otaProgress').innerText = percent + "%";
+        function closeWifiFailPopup() {
+            document.getElementById("wifiFailPopup").style.display = "none";
+        }
+        async function fetchLatestVersion() {
+            try {
+                const res = await fetch(latestJsonUrl);
+                if (!res.ok) {
+                    console.error("Fetch lastest.json failed, status:", res.status);
+                    return;
                 }
-            };
+                const j = await res.json();
+                latestFwVersion = j.version || null;
+                latestNotes = j.notes || "";
 
-            xhr.onload = function () {
-                if (xhr.status === 200) {
-                    document.getElementById('otaMsg').innerText = "Nạp firmware thành công! Thiết bị sẽ tự khởi động lại.";
-                } else {
-                    document.getElementById('otaMsg').innerText = "Nạp firmware thất bại!";
-                }
-                setTimeout(() => {
-                    document.getElementById('otaProgressBar').style.display = "none";
-                    document.getElementById('otaProgress').style.width = "0%";
-                }, 3000);
-            };
+                // Sau khi có currentFwVersion + latestFwVersion, so sánh
+                compareVersionsAndShowStatus();
+            } catch (e) {
+                console.error("Error fetching lastest.json:", e);
+            }
+        }
 
-            const formData = new FormData();
-            formData.append("firmware", file);
-            xhr.send(formData);
-        };
+        function compareVersionsAndShowStatus() {
+            const curEl = document.getElementById('curVerText');
+            const latestEl = document.getElementById('latestVerText');
+            const statusEl = document.getElementById('otaStatusText');
 
+            if (currentFwVersion) curEl.innerText = currentFwVersion;
+            if (latestFwVersion) latestEl.innerText = latestFwVersion;
+
+            if (!currentFwVersion || !latestFwVersion) {
+                statusEl.innerText = "Chưa đủ thông tin phiên bản.";
+                statusEl.style.color = "#f57c00";
+                return;
+            }
+
+            if (currentFwVersion === latestFwVersion) {
+                statusEl.innerText = "Thiết bị đang ở phiên bản mới nhất.";
+                statusEl.style.color = "#00796b";
+            } else {
+                statusEl.innerText = "Có bản firmware mới! Bạn có thể nạp file OTA ở bên dưới.";
+                statusEl.style.color = "#c62828";
+            }
+        }
         function showPage(page, event) {
             document.getElementById('Home').style.display = (page === 'Home') ? 'block' : 'none';
             document.getElementById('wifiPage').style.display = (page === 'wifi') ? 'block' : 'none';
@@ -757,12 +761,9 @@
             event.target.classList.add('active');
         }
 
-        function closeWifiFailPopup() {
-            document.getElementById("wifiFailPopup").style.display = "none";
-        }
-
         window.onload = function () {
             connectWS();
+            fetchLatestVersion();
         };
     </script>
 </body>
