@@ -192,11 +192,9 @@ bool otaFromUrl(const String &binUrl) {
                 SendMsgToWeb("update_fail");
                 return false;
             }
-            // loop to follow the new location
             continue;
         }
 
-        // other errors
         Serial.printf("OTA: HTTP code %d\n", httpCode);
         http.end();
         SendMsgToWeb("update_fail");

@@ -53,7 +53,7 @@ void TaskLed(void* pvParameters) {
 
 TaskHandle_t xTaskLedHandle = NULL;
 void Led_Indicate_Task(void* pvParameters) {
-    uint32_t ulFlashDelay = 5000;
+    uint32_t ulFlashDelay = 1000;
     uint32_t ulNotifiedValue;
 
     while(1){
