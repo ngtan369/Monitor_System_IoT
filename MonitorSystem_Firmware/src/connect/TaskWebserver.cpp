@@ -4,7 +4,8 @@ AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
 bool needWifiScan = false;
 String ota_version_link = "https://raw.githubusercontent.com/TrungTan369/Embedded_System_Course/main/latest.json";
-String g_fwVersion = "0.0";
+String current_version = "0.0";
+String latest_Version = "";
 String ota_update_link = "";
 void sendConfigJson() {
     if (!LittleFS.begin()) {
@@ -25,8 +26,8 @@ void sendConfigJson() {
     StaticJsonDocument<256> doc;
     DeserializationError err = deserializeJson(doc, content);
     if (!err) {
-        const char* fw = doc["fw_version"];
-        if (fw) g_fwVersion = fw;
+        const char* fw = doc["version"];
+        if (fw) current_version = fw;
     }
     ws.textAll(content);
 }
@@ -50,7 +51,37 @@ bool saveWiFiToFS(const String& ssid, const String& password) {
     Serial.println("WiFi credentials saved to FS");
     return true;
 }
+bool saveVersionToFS(){
+    DynamicJsonDocument doc(256);
+    doc["version"] = latest_Version;
 
+    File file = LittleFS.open("/config.json", "r");
+    if (!file) {
+        Serial.println("Failed to open config.json for reading");
+        return false;
+    }
+    DeserializationError err = deserializeJson(doc, file);
+    file.close();
+    if (err) {
+        Serial.println("Failed to parse config.json");
+        return false;
+    }
+    doc["version"] = latest_Version;
+
+    file = LittleFS.open("/config.json", "w");
+    if (!file) {
+        Serial.println("Failed to open config.json for writing");
+        return false;
+    }
+    if (serializeJson(doc, file) == 0) {
+        Serial.println("Failed to write to config.json");
+        file.close();
+        return false;
+    }
+    file.close();
+    Serial.println("Version info saved to FS");
+    return true;
+}
 void SendMsgToWeb(String msg) {
     DynamicJsonDocument doc(64);
     doc[msg] = true;
@@ -100,11 +131,12 @@ bool checkAndReportLatestVersion() {
     const char* note     = doc["note"];
     const char* createAt     = doc["createAt"];
     ota_update_link = url;
+    latest_Version = latestVer;
     // gửi thông tin lên WebSocket cho UI
     StaticJsonDocument<256> out;
-    out["cur_ver"]    = g_fwVersion;
+    out["cur_ver"]    = current_version;
     out["latest_ver"] = latestVer;
-    out["has_update"] = String(latestVer) != g_fwVersion;
+    out["has_update"] = String(latestVer) != current_version;
     out["note"]      = note ? note : "1";
     out["createAt"]      = createAt;
     String msg;
@@ -185,6 +217,7 @@ bool otaFromUrl(const String &binUrl) {
 
     Serial.println("OTA: Update success, restarting...");
     SendMsgToWeb("update_ok");
+    saveVersionToFS();
     vTaskDelay(pdMS_TO_TICKS(5000));
     ESP.restart();
     return true; // thực tế sẽ không chạy đến đây vì restart
