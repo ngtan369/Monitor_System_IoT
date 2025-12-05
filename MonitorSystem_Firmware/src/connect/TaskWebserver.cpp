@@ -28,7 +28,9 @@ void sendConfigJson() {
     DeserializationError err = deserializeJson(doc, content);
     if (!err) {
         const char* fw = doc["version"];
-        if (fw) current_version = fw;
+        if (fw) {
+            current_version = fw;
+        }
     }
     ws.textAll(content);
 }
@@ -128,18 +130,17 @@ bool checkAndReportLatestVersion() {
     if (deserializeJson(doc, payload)) 
         return false;
     const char* latestVer = doc["ver"];
-    const char * url     = doc["url"];
-    const char* note     = doc["note"];
-    const char* createAt     = doc["createAt"];
+    const char * url      = doc["url"];
+    const char* note      = doc["note"];
+    const char* createAt  = doc["createAt"];
     ota_update_link = url;
     latest_Version = latestVer;
     // gửi thông tin lên WebSocket cho UI
     StaticJsonDocument<256> out;
-    out["cur_ver"]    = current_version;
-    out["latest_ver"] = latestVer;
-    out["has_update"] = String(latestVer) != current_version;
-    out["note"]      = note ? note : "1";
-    out["createAt"]      = createAt;
+    out["cur_ver"]      = current_version;
+    out["latest_ver"]   = latestVer;
+    out["note"]         = note;
+    out["createAt"]     = createAt;
     String msg;
     serializeJson(out, msg);
     ws.textAll(msg);
@@ -163,6 +164,7 @@ bool otaFromUrl(const String &binUrl) {
 
     if (!Update.begin(contentLength)) {
         Serial.println("OTA: Update.begin failed");
+        SendMsgToWeb("update_fail");
         http.end();
         return false;
     }

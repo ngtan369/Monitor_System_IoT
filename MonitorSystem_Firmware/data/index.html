@@ -633,7 +633,7 @@
                 const d = JSON.parse(event.data);
                 if (d.device_name || d.fw_version || d.sys_id) {
                     document.getElementById('cfg_device_name').innerText = d.device_name || '--';
-                    document.getElementById('cfg_fw_version').innerText = d.fw_version || '--';
+                    document.getElementById('cfg_fw_version').innerText = d.version || '--';
                     document.getElementById('cfg_user').innerText = d.user || '--';
                     document.getElementById('cfg_sys_id').innerText = d.sys_id || '--';
                     document.getElementById('cfg_address').innerText = d.address || '--';
