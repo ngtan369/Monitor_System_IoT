@@ -149,12 +149,56 @@ bool checkAndReportLatestVersion() {
 
 //---------------------- OTA from URL ---------------------
 bool otaFromUrl(const String &binUrl) {
+    const int MAX_REDIRECTS = 5;
+    int redirects = 0;
+    String url = binUrl;
+
     HTTPClient http;
-    http.begin(binUrl);
-    int httpCode = http.GET();
-    if (httpCode != HTTP_CODE_OK) {
-        http.end();
+    int httpCode = 0;
+
+    // follow redirects up to MAX_REDIRECTS
+    while (true) {
+        Serial.print("OTA: GET ");
+        Serial.println(url);
+
+        if (!http.begin(url)) {
+            Serial.println("OTA: http.begin failed");
+            SendMsgToWeb("update_fail");
+            return false;
+        }
+
+        httpCode = http.GET();
+
+        // success
+        if (httpCode == HTTP_CODE_OK) {
+            Serial.println("OTA: HTTP 200 OK");
+            break;
+        }
+
+        // redirect
+        if (httpCode >= 300 && httpCode < 400) {
+            String location = http.getLocation();
+            http.end();
+            if (location.length() == 0) {
+                Serial.println("OTA: redirect but no Location header");
+                SendMsgToWeb("update_fail");
+                return false;
+            }
+            url = location;
+            redirects++;
+            Serial.printf("OTA: redirect -> %s (count=%d)\n", url.c_str(), redirects);
+            if (redirects > MAX_REDIRECTS) {
+                Serial.println("OTA: too many redirects");
+                SendMsgToWeb("update_fail");
+                return false;
+            }
+            // loop to follow the new location
+            continue;
+        }
+
+        // other errors
         Serial.printf("OTA: HTTP code %d\n", httpCode);
+        http.end();
         SendMsgToWeb("update_fail");
         return false;
     }
@@ -162,20 +206,33 @@ bool otaFromUrl(const String &binUrl) {
     int contentLength = http.getSize();
     WiFiClient *client = http.getStreamPtr();
 
-    if (!Update.begin(contentLength)) {
-        Serial.println("OTA: Update.begin failed");
-        SendMsgToWeb("update_fail");
-        http.end();
-        return false;
+    // begin update (support unknown size)
+    if (contentLength > 0) {
+        Serial.printf("OTA: contentLength=%d\n", contentLength);
+        if (!Update.begin(contentLength)) {
+            Serial.println("OTA: Update.begin failed (insufficient space?)");
+            http.end();
+            SendMsgToWeb("update_fail");
+            return false;
+        }
+    } else {
+        Serial.println("OTA: content length unknown, using UPDATE_SIZE_UNKNOWN");
+        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
+            Serial.println("OTA: Update.begin failed (unknown size)");
+            http.end();
+            SendMsgToWeb("update_fail");
+            return false;
+        }
     }
 
     size_t written = Update.writeStream(*client);
     bool endOk = Update.end();
-
     http.end();
 
+    Serial.printf("OTA: written=%u\n", (unsigned)written);
+
     if (!endOk || Update.hasError()) {
-        Serial.printf("OTA: Update error. written=%u\n", (unsigned)written);
+        Serial.println("OTA: Update error");
         SendMsgToWeb("update_fail");
         return false;
     }
@@ -185,7 +242,7 @@ bool otaFromUrl(const String &binUrl) {
     saveVersionToFS(); // new version saved to FS
     vTaskDelay(pdMS_TO_TICKS(5000));
     ESP.restart();
-    return true; // thực tế sẽ không chạy đến đây vì restart
+    return true; // not reached
 }
 
 void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
