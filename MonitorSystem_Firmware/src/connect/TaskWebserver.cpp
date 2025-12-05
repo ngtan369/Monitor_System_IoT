@@ -217,7 +217,7 @@ bool otaFromUrl(const String &binUrl) {
 
     Serial.println("OTA: Update success, restarting...");
     SendMsgToWeb("update_ok");
-    saveVersionToFS();
+    saveVersionToFS(); // new version saved to FS
     vTaskDelay(pdMS_TO_TICKS(5000));
     ESP.restart();
     return true; // thực tế sẽ không chạy đến đây vì restart
