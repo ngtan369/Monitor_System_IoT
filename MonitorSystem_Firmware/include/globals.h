@@ -5,6 +5,8 @@
 #include "../src/connect/Firebase.h"
 #include "../src/connect/TaskWebserver.h"
 #include "../src/connect/TaskWifi.h"
-#include "../src/device/TaskLed.h"
+
+#include "../src/device/control.h"
+#include "../src/device/sensor.h"
 
 #endif

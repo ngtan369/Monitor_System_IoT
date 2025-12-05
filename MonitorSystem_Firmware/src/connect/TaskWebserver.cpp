@@ -2,7 +2,6 @@
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws");
-bool needWifiScan = false;
 String ota_version_link = "https://raw.githubusercontent.com/TrungTan369/Embedded_System_Course/main/latest.json";
 String current_version = "0.0";
 String latest_Version = "";
@@ -148,27 +147,24 @@ bool checkAndReportLatestVersion() {
 }
 
 void wifiScanTask(void *param) {
-     ws.cleanupClients();
-    if (needWifiScan) {
-        needWifiScan = false;
-        WiFi.scanDelete();  
-        Serial.println("loop: Scanning WiFi...");
-        int n = WiFi.scanNetworks();
-        DynamicJsonDocument doc(4096);
-        JsonArray arr = doc.createNestedArray("scan");
+    ws.cleanupClients();
+    WiFi.scanDelete();  
+    Serial.println("loop: Scanning WiFi...");
+    int n = WiFi.scanNetworks();
+    DynamicJsonDocument doc(4096);
+    JsonArray arr = doc.createNestedArray("scan");
 
-        for (int i = 0; i < n; i++) {
-            JsonObject o = arr.createNestedObject();
-            o["ssid"] = WiFi.SSID(i);
-            o["rssi"] = WiFi.RSSI(i);
-            o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-        }
-
-        String out;
-        serializeJson(doc, out);
-        ws.textAll(out);
-        vTaskDelete(NULL);
+    for (int i = 0; i < n; i++) {
+        JsonObject o = arr.createNestedObject();
+        o["ssid"] = WiFi.SSID(i);
+        o["rssi"] = WiFi.RSSI(i);
+        o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
     }
+
+    String out;
+    serializeJson(doc, out);
+    ws.textAll(out);
+    vTaskDelete(NULL);
 }
 void otaTask(void *param) {
     const int MAX_REDIRECTS = 5;

@@ -6,9 +6,8 @@
 #include <FirebaseESP32.h>
 #include <WiFi.h>
 #include "../../env.h"
+#include "../device/sensor.h"
+#include "../device/control.h"
 
-
-void setup_Firebase();
-void sendDataTask(void *pvParameters);
-
+void initFirebase();
 #endif

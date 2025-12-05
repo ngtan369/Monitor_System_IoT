@@ -5,10 +5,11 @@ void setup() {
     Serial.begin(115200);
     Serial.println("Hello user");
     LittleFS.begin();
-    initLed();
+    
     initWiFi();
-    setup_Firebase();
-
+    initSensor();
+    initControl();
+    initFirebase();
 }
 
 void loop() {

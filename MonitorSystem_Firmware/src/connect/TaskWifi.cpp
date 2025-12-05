@@ -5,7 +5,8 @@ constexpr char AP_PASSWORD[] = "87654321";
 
 String ssid = "";
 String password = "";
-
+unsigned long lastInternetCheck = 0;
+bool isInternetAvailable = false;
 bool ap_mode = false;
 bool checkInternet(unsigned long timeoutMs = 3000) {
     HTTPClient http;
@@ -96,11 +97,18 @@ void WiFi_Handle() {
     if (status != WL_CONNECTED) {
         ulTargetDelay = FLASH_DELAY_NO_WIFI;
     }
-    else if (!checkInternet()) {
-        ulTargetDelay = FLASH_DELAY_NO_INTERNET;
-    }
     else {
-        ulTargetDelay = 0;
+        // Có Wifi, kiểm tra Internet ĐỊNH KỲ (không kiểm tra liên tục)
+        if (millis() - lastInternetCheck > 10000) { // 10 giây check 1 lần
+            isInternetAvailable = checkInternet(2000); // Timeout ngắn thôi (2s)
+            lastInternetCheck = millis();
+        }
+
+        if (!isInternetAvailable) {
+            ulTargetDelay = FLASH_DELAY_NO_INTERNET;
+        } else {
+            ulTargetDelay = 0; // Có mạng ngon lành
+        }
     }
 
     if (xTaskLedHandle != NULL) {
@@ -113,8 +121,5 @@ void initWiFi() {
     pinMode(BOOT_BUTTON, INPUT_PULLUP);
     WiFi.mode(WIFI_STA);
     setup_STA();
-    // WiFi.mode(WIFI_AP_STA); // FOR TEST
-    // setup_AP(); // FOR TEST
-    // initWebserver();  // FOR TEST
 }
 

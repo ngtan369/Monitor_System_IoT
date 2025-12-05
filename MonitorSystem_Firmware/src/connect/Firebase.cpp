@@ -8,62 +8,91 @@
 
 // Khai báo các biến global
 FirebaseData fbdo;
+FirebaseData streamData; // Để NHẬN (Downlink)
 FirebaseAuth auth;
 FirebaseConfig config;
 
-void setup_Firebase() {
+SensorData sensordata;
+ControlData currentData = {0.0, 0.0};
+
+void firebaseTask(void *pvParameters) {
+
+    for (;;) {
+       if (Firebase.ready()) {
+            if (Firebase.beginStream(streamData, "system_1/control")) {
+                Serial.println("Stream started inside Task!");
+            } else {
+                    Serial.printf("Stream init failed: %s\n", streamData.errorReason().c_str());
+            }
+            if (!Firebase.readStream(streamData)) {
+                Serial.printf("Stream read error: %s\n", streamData.errorReason().c_str());
+            }
+            if (streamData.streamAvailable()) {
+                String path = streamData.dataPath();    
+                if (path == "/fan") {
+                    currentData.fan = streamData.floatData();
+                    Serial.println("Stream: Fan updated");
+                } 
+                else if (path == "/led") {
+                    currentData.led = streamData.floatData();
+                    Serial.println("Stream: LED updated");
+                }
+                if (path == "/") {
+                    FirebaseJson *json = streamData.jsonObjectPtr();
+                }
+                if (controlQueue != NULL) {
+                    xQueueSend(controlQueue, &currentData, 0);
+                }
+            }
+        } else {
+            Serial.println("Firebase not ready...");
+        }
+        
+        if (xQueueReceive(dataQueue, &sensordata, pdMS_TO_TICKS(1000)) == pdPASS) {
+            if (Firebase.ready()) {
+                FirebaseJson json;
+                json.add("temp", sensordata.temp);
+                json.add("humi", sensordata.humi);
+                json.add("light", sensordata.light);
+                if (Firebase.setJSON(fbdo, "system_1/sensor", json)) {
+                    Serial.println("Data sent successfully!");
+                } else {
+                    Serial.printf("Error: %s\n", fbdo.errorReason().c_str());
+                }
+            } else {
+                Serial.println("Firebase not ready...");
+            }
+        } 
+        vTaskDelay(pdMS_TO_TICKS(100));
+    }
+}
+
+void initFirebase() {
     Serial.println("Setting up Firebase...");
 
     config.api_key = API_KEY;
     auth.user.email = USER_EMAIL;
     auth.user.password = USER_PASSWORD;
-    
-    // Lưu ý: database_url nên bỏ "https://" và dấu "/" ở cuối cho chuẩn nhất
-    // Ví dụ: "du-an-abc.firebaseio.com"
     config.database_url = DATABASE_URL; 
-
-    config.token_status_callback = tokenStatusCallback; // Callback từ TokenHelper
-
-    Firebase.reconnectNetwork(true);
+    config.token_status_callback = tokenStatusCallback;
     
-    // Tăng buffer nếu gửi dữ liệu lớn (JSON to), với sensor đơn giản thì để mặc định cũng được
+    Firebase.reconnectNetwork(true);
     fbdo.setBSSLBufferSize(4096, 1024); 
-
     Firebase.begin(&config, &auth);
-    Firebase.setDoubleDigits(5); // Lấy 5 số sau dấu phẩy cho float
-}
+    Firebase.setDoubleDigits(5);
 
-void firebaseTask(void *pvParameters) {
-    for (;;) {
-        // Chỉ gửi khi Firebase đã sẵn sàng và Token hợp lệ
-        if (Firebase.ready()) {
-            
-            // 1. Giả lập số liệu
-            float temp = 25.5; 
-            float humi = 36.36;
+    // if (!Firebase.beginStream(streamData, "system_1/control")) {
+    //     Serial.printf("Stream begin error: %s\n", streamData.errorReason().c_str());
+    // } else {
+    //     Serial.println("Stream started successfully!");
+    // }
 
-            // 2. Tạo đối tượng JSON bằng thư viện FirebaseJson (nhẹ hơn ArduinoJson)
-            FirebaseJson json;
-            json.add("temp", temp); // Thêm key "temp"
-            json.add("humi", humi); // Thêm key "humi"
-
-            // 3. Gửi lên Firebase
-            // Đường dẫn: "system_1/sensors"
-            Serial.println("Sending data...");
-            
-            if (Firebase.setJSON(fbdo, "system_1/sensor", json)) {
-                Serial.println("Data sent successfully!");
-                // In đường dẫn và ETag để debug nếu cần (xem RTDBHelper)
-                // printResult(fbdo); 
-            } else {
-                Serial.printf("Error: %s\n", fbdo.errorReason().c_str());
-            }
-
-        } else {
-            Serial.println("Firebase not ready...");
-        }
-
-        // Delay 5000ms (5 giây) trước khi lặp lại
-        vTaskDelay(pdMS_TO_TICKS(5000));
-    }
+    xTaskCreate(
+        firebaseTask,
+        "firebaseTask",
+        8192,
+        NULL,
+        1,
+        NULL
+    );
 }
