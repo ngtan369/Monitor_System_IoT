@@ -265,23 +265,6 @@
             }
         }
 
-        #otaForm button {
-            padding: 12px 0;
-            width: 80%;
-            margin: 18px auto 0 auto;
-            border-radius: 18px;
-            font-size: 1.1em;
-            background: linear-gradient(90deg, #007acc 60%, #005b99 100%);
-            color: white;
-            border: none;
-            cursor: pointer;
-            display: block;
-            transition: background 0.2s, box-shadow 0.2s;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.07);
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-
         .popup-overlay {
             position: fixed;
             top: 0;
@@ -378,11 +361,6 @@
             background: #b9b9b9;
         }
 
-        #otaForm button:hover {
-            background: linear-gradient(90deg, #005b99 60%, #007acc 100%);
-            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.13);
-        }
-
         .wifi-list-container {
             max-width: 360px;
             margin-top: 20px;
@@ -465,6 +443,58 @@
             color: #888;
             font-weight: 400;
         }
+
+        /* ===== OTA styles ===== */
+        .ota-panel {
+            max-width: 600px;
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+            padding: 18px 20px;
+            border: 1px solid #e0e7ff;
+        }
+
+        .ota-versions {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .ota-pill {
+            padding: 10px 14px;
+            border-radius: 10px;
+            background: linear-gradient(180deg, #f7fbff, #edf5ff);
+            border: 1px solid #d3e3ff;
+        }
+
+        .ota-pill-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0b63a8;
+            margin-bottom: 4px;
+        }
+
+        .ota-pill-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: #263238;
+        }
+
+        .ota-meta {
+            font-size: 14px;
+            color: #555;
+            margin-bottom: 6px;
+        }
+
+        .ota-notes {
+            font-size: 14px;
+            padding: 10px 12px;
+            border-radius: 10px;
+            background: #f3fbf9;
+            border: 1px solid #d5efe4;
+            color: #075a3a;
+        }
     </style>
 </head>
 
@@ -523,15 +553,29 @@
             </div>
             <p id="wifiMsg"></p>
         </div>
-
         <div id="otaPage" style="display:none;">
             <h1>Cài đặt Firmware</h1>
-
-            <div id="otaInfo" style="margin-bottom:12px;font-size:14px;color:#333;">
-                <div>Phiên bản hiện tại: <span id="curVerText">--</span></div>
-                <div>Phiên bản mới nhất: <span id="latestVerText">--</span></div>
-                <div id="otaStatusText" style="margin-top:4px;color:#00796b;"></div>
+            <div id="otaInfo" class="ota-panel" style="font-size:14px;color:#333;">
+                <!-- Khung: Phiên bản hiện tại -->
+                <div class="ota-pill" style="margin-bottom:12px;">
+                    <div class="ota-pill-title">Phiên bản hiện tại</div>
+                    <div class="ota-pill-value" id="curVerText">--</div>
+                </div>
+                <div class="ota-pill">
+                    <div class="ota-pill-title">Phiên bản mới nhất</div>
+                    <div class="ota-pill-value" id="latestVerText">--</div>
+                    <div class="ota-meta" style="margin-top:8px;">
+                        Ngày phát hành: <span id="createAtText">--</span>
+                    </div>
+                    <div id="otaStatusText" class="ota-notes" style="margin-top:6px;"></div>
+                </div>
             </div>
+            <button id="otaUpdateBtn" class="btn-blue" style="margin-top:16px; min-width:180px;"
+                onclick="startOtaUpdate()">
+                Cập nhật Firmware
+            </button>
+
+            <span id="otaInfoText" style="margin-left:10px; font-size:14px; color:#00796b;"></span>
             <p id="otaMsg"></p>
         </div>
 
@@ -552,7 +596,7 @@
     <!-- POPUP RESTART -->
     <div id="restartPopup" class="popup-overlay">
         <div class="popup-box">
-            <h3 class="popup-title">Đã kết nối Wi‑Fi thành công!</h3>
+            <h3 class="popup-title">Thực hiện thành công!</h3>
             <p id="wifiInfoText" style="margin-bottom:8px;font-size:14px;color:#333;"></p>
             <p>Thiết bị sẽ tự khởi động lại sau <span id="restartCountdown">10</span> giây...</p>
         </div>
@@ -566,17 +610,26 @@
             <button class="btn-blue" onclick="closeWifiFailPopup()">Đóng</button>
         </div>
     </div>
-
+    <!-- POPUP OTA FAIL -->
+    <div id="otaFailPopup" class="popup-overlay">
+        <div class="popup-box">
+            <h3 class="popup-title">Cập nhật Firmware thất bại</h3>
+            <p>Vui lòng kiểm tra kết nối mạng và thử lại sau.</p>
+            <button class="btn-blue" onclick="closeOtaFailPopup()">Đóng</button>
+        </div>
+    </div>
     <script>
 
         let ws;
         let selectedSSID = "";
         let wsQueue = [];
         let restartTimer = null;
-
+        let curVer = null;
+        let latestVer = null;
         function connectWS() {
             ws = new WebSocket('ws://' + location.hostname + '/ws');
             ws.onmessage = function (event) {
+                console.log('WS RX:', event.data);
                 const d = JSON.parse(event.data);
                 if (d.device_name || d.fw_version || d.sys_id) {
                     document.getElementById('cfg_device_name').innerText = d.device_name || '--';
@@ -615,27 +668,77 @@
                     document.getElementById("wifiFailPopup").style.display = "flex";
                 }
                 // OTA info từ ESP32: in trực tiếp cur_ver, latest_ver, notes
-                if (d.cur_ver || d.latest_ver || d.notes || d.createAt) {
+                if (d.cur_ver || d.latest_ver || d.note || d.createAt) {
                     const curEl = document.getElementById('curVerText');
                     const latestEl = document.getElementById('latestVerText');
-                    const createAt = document.getElementById('createAtText');
+                    const createAtEl = document.getElementById('createAtText');
                     const statusEl = document.getElementById('otaStatusText');
-
-                    if (d.cur_ver) curEl.textContent = d.cur_ver;
-                    if (d.latest_ver) latestEl.textContent = d.latest_ver;
-
+                    const btn = document.getElementById('otaUpdateBtn');   // THÊM
+                    const infoText = document.getElementById('otaInfoText');    // THÊM
+                    if (d.cur_ver) {
+                        curVer = d.cur_ver;
+                        curEl.textContent = d.cur_ver;
+                    }
+                    if (d.latest_ver) {
+                        latestVer = d.latest_ver;
+                        latestEl.textContent = d.latest_ver;
+                    }
+                    if (d.createAt) createAtEl.textContent = d.createAt;
                     if (d.note && d.note.length > 0) {
                         statusEl.textContent = d.note;
                         statusEl.style.color = '#00796b';
                     } else {
                         statusEl.textContent = '';
                     }
+
+                    if (btn && infoText) {
+                        if (curVer && latestVer && curVer === latestVer) {
+                            btn.disabled = true;
+                            btn.style.opacity = 0.5;
+                            infoText.textContent = "Bạn đang ở phiên bản mới nhất";
+                        } else {
+                            btn.disabled = false;
+                            btn.style.opacity = 1;
+                            infoText.textContent = "";
+                        }
+                    }
+
+                }
+                if (d.update_fail) {
+                    document.getElementById("otaFailPopup").style.display = "flex";
+                    const otaMsgEl = document.getElementById("otaMsg");
+                    if (otaMsgEl) otaMsgEl.textContent = "";
+                }
+                if (d.update_ok) {
+                    const otaMsgEl = document.getElementById("otaMsg");
+                    if (otaMsgEl) otaMsgEl.textContent = "";
+                    // Ẩn popup OTA fail nếu đang mở
+                    const of = document.getElementById("otaFailPopup");
+                    if (of) of.style.display = "none";
+                    // Hiện popup restart
+                    const popup = document.getElementById("restartPopup");
+                    const cdEl = document.getElementById("restartCountdown");
+                    let remain = 10;
+                    if (cdEl) cdEl.textContent = remain;
+                    popup.style.display = "flex";
+
+                    if (restartTimer) clearInterval(restartTimer);
+                    restartTimer = setInterval(() => {
+                        remain--;
+                        if (cdEl) cdEl.textContent = remain;
+                        if (remain <= 0) {
+                            clearInterval(restartTimer);
+                            restartTimer = null;
+                            try { ws.send("restart"); } catch (e) { }
+                            popup.style.display = "none";
+                        }
+                    }, 1000);
                 }
             };
             ws.onopen = function () {
                 console.log("WS Connected");
                 while (wsQueue.length > 0) ws.send(wsQueue.shift());
-                ws.send("get_config"); // yêu cầu ESP32 gửi config.json ngay khi mở WS
+                ws.send("get_config");
             };
             ws.onclose = () => setTimeout(connectWS, 1000);
         }
@@ -727,7 +830,23 @@
         function closeWifiFailPopup() {
             document.getElementById("wifiFailPopup").style.display = "none";
         }
-
+        function startOtaUpdate() {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                alert("WebSocket chưa sẵn sàng.");
+                return;
+            }
+            if (!confirm("Bạn có chắc muốn cập nhật firmware ngay bây giờ?"))
+                return;
+            const otaMsgEl = document.getElementById("otaMsg");
+            if (otaMsgEl) {
+                otaMsgEl.textContent = "Vui lòng chờ trong giây lát...";
+                otaMsgEl.style.color = "#00796b";
+            }
+            ws.send("ota_update");
+        }
+        function closeOtaFailPopup() {
+            document.getElementById("otaFailPopup").style.display = "none";
+        }
         function showPage(page, event) {
             document.getElementById('Home').style.display = (page === 'Home') ? 'block' : 'none';
             document.getElementById('wifiPage').style.display = (page === 'wifi') ? 'block' : 'none';

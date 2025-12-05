@@ -5,7 +5,7 @@ AsyncWebSocket ws("/ws");
 bool needWifiScan = false;
 String ota_version_link = "https://raw.githubusercontent.com/TrungTan369/Embedded_System_Course/main/latest.json";
 String g_fwVersion = "0.0";
-
+String ota_update_link = "";
 void sendConfigJson() {
     if (!LittleFS.begin()) {
         Serial.println("Failed to mount LittleFS in sendConfigJson");
@@ -51,7 +51,7 @@ bool saveWiFiToFS(const String& ssid, const String& password) {
     return true;
 }
 
-void sendWifiStatus(String msg) {
+void SendMsgToWeb(String msg) {
     DynamicJsonDocument doc(64);
     doc[msg] = true;
     String out;
@@ -70,9 +70,9 @@ void scan_wifi(String ssid, String pass) {
 
     if (WiFi.status() == WL_CONNECTED) {
         saveWiFiToFS(ssid, pass);
-        sendWifiStatus("wifi_ok"); 
+        SendMsgToWeb("wifi_ok"); 
     } else {
-        sendWifiStatus("wifi_fail");
+        SendMsgToWeb("wifi_fail");
     }
 }
 
@@ -96,11 +96,10 @@ bool checkAndReportLatestVersion() {
     if (deserializeJson(doc, payload)) 
         return false;
     const char* latestVer = doc["ver"];
-    const char* url       = doc["url"];
+    const char * url     = doc["url"];
     const char* note     = doc["note"];
     const char* createAt     = doc["createAt"];
-    if (!latestVer || !url) 
-        return false;
+    ota_update_link = url;
     // gửi thông tin lên WebSocket cho UI
     StaticJsonDocument<256> out;
     out["cur_ver"]    = g_fwVersion;
@@ -143,10 +142,8 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
             sendConfigJson();
         }else if (msg == "ota_check") {
             checkAndReportLatestVersion();
-            Serial.println("test 1");
-        } else if (msg == "update") {
-            bool otaFromUrl()
-
+        } else if (msg == "ota_update") {
+            otaFromUrl(ota_update_link);
         }
     }
 }
@@ -162,6 +159,7 @@ bool otaFromUrl(const String &binUrl) {
     if (httpCode != HTTP_CODE_OK) {
         http.end();
         Serial.printf("OTA: HTTP code %d\n", httpCode);
+        SendMsgToWeb("update_fail")
         return false;
     }
 
@@ -181,10 +179,13 @@ bool otaFromUrl(const String &binUrl) {
 
     if (!endOk || Update.hasError()) {
         Serial.printf("OTA: Update error. written=%u\n", (unsigned)written);
+        SendMsgToWeb("update_fail")
         return false;
     }
 
     Serial.println("OTA: Update success, restarting...");
+    SendMsgToWeb("update_ok");
+    vTaskDelay(pdMS_TO_TICKS(5000));
     ESP.restart();
     return true; // thực tế sẽ không chạy đến đây vì restart
 }
