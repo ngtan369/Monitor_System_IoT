@@ -93,7 +93,7 @@ void SendMsgToWeb(String msg) {
     ws.textAll(out);
 }
 
-void scan_wifi(String ssid, String pass) {
+void connectNewWiFi(String ssid, String pass) {
     WiFi.begin(ssid.c_str(), pass.c_str());
     Serial.println("Connecting...");
 
@@ -147,16 +147,36 @@ bool checkAndReportLatestVersion() {
     return true;
 }
 
-//---------------------- OTA from URL ---------------------
-bool otaFromUrl(const String &binUrl) {
+void wifiScanTask(void *param) {
+     ws.cleanupClients();
+    if (needWifiScan) {
+        needWifiScan = false;
+        WiFi.scanDelete();  
+        Serial.println("loop: Scanning WiFi...");
+        int n = WiFi.scanNetworks();
+        DynamicJsonDocument doc(4096);
+        JsonArray arr = doc.createNestedArray("scan");
+
+        for (int i = 0; i < n; i++) {
+            JsonObject o = arr.createNestedObject();
+            o["ssid"] = WiFi.SSID(i);
+            o["rssi"] = WiFi.RSSI(i);
+            o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+        }
+
+        String out;
+        serializeJson(doc, out);
+        ws.textAll(out);
+        vTaskDelete(NULL);
+    }
+}
+void otaTask(void *param) {
     const int MAX_REDIRECTS = 5;
     int redirects = 0;
-    String url = binUrl;
-
+    String url = ota_update_link;
     HTTPClient http;
     int httpCode = 0;
-
-    // follow redirects up to MAX_REDIRECTS
+    Serial.println("OTA TASK: started");
     while (true) {
         Serial.print("OTA: GET ");
         Serial.println(url);
@@ -164,25 +184,25 @@ bool otaFromUrl(const String &binUrl) {
         if (!http.begin(url)) {
             Serial.println("OTA: http.begin failed");
             SendMsgToWeb("update_fail");
-            return false;
+            vTaskDelete(NULL);
+            return;
         }
 
         httpCode = http.GET();
 
-        // success
         if (httpCode == HTTP_CODE_OK) {
             Serial.println("OTA: HTTP 200 OK");
             break;
         }
 
-        // redirect
         if (httpCode >= 300 && httpCode < 400) {
             String location = http.getLocation();
             http.end();
             if (location.length() == 0) {
                 Serial.println("OTA: redirect but no Location header");
                 SendMsgToWeb("update_fail");
-                return false;
+                vTaskDelete(NULL);
+                return;
             }
             url = location;
             redirects++;
@@ -190,7 +210,8 @@ bool otaFromUrl(const String &binUrl) {
             if (redirects > MAX_REDIRECTS) {
                 Serial.println("OTA: too many redirects");
                 SendMsgToWeb("update_fail");
-                return false;
+                vTaskDelete(NULL);
+                return;
             }
             continue;
         }
@@ -198,49 +219,118 @@ bool otaFromUrl(const String &binUrl) {
         Serial.printf("OTA: HTTP code %d\n", httpCode);
         http.end();
         SendMsgToWeb("update_fail");
-        return false;
+        vTaskDelete(NULL);
+        return;
     }
 
     int contentLength = http.getSize();
     WiFiClient *client = http.getStreamPtr();
 
-    // begin update (support unknown size)
-    if (contentLength > 0) {
-        Serial.printf("OTA: contentLength=%d\n", contentLength);
-        if (!Update.begin(contentLength)) {
-            Serial.println("OTA: Update.begin failed (insufficient space?)");
-            http.end();
-            SendMsgToWeb("update_fail");
-            return false;
-        }
-    } else {
-        Serial.println("OTA: content length unknown, using UPDATE_SIZE_UNKNOWN");
-        if (!Update.begin(UPDATE_SIZE_UNKNOWN)) {
-            Serial.println("OTA: Update.begin failed (unknown size)");
-            http.end();
-            SendMsgToWeb("update_fail");
-            return false;
-        }
+    Serial.printf("OTA: contentLength=%d\n", contentLength);
+    Serial.printf("Free sketch space: %u\n", (unsigned)ESP.getFreeSketchSpace());
+
+    if (!Update.begin(contentLength)) {
+        Serial.printf("OTA: Update.begin failed, err=%d\n", Update.getError());
+        http.end();
+        SendMsgToWeb("update_fail");
+        vTaskDelete(NULL);
+        return;
     }
 
-    size_t written = Update.writeStream(*client);
+    // Đọc/ghi theo block nhỏ, có nhả CPU
+    const size_t bufSize = 2048;
+    uint8_t buf[bufSize];
+    size_t totalWritten = 0;
+    uint32_t lastPrint = millis();
+
+    while (client->connected() && (contentLength > 0 ? totalWritten < (size_t)contentLength : true)) {
+        size_t available = client->available();
+        if (available == 0) {
+            vTaskDelay(pdMS_TO_TICKS(10));
+            if (!client->connected()) break;
+            continue;
+        }
+
+        size_t toRead = available;
+        if (toRead > bufSize) toRead = bufSize;
+
+        int actuallyRead = client->read(buf, toRead);
+        if (actuallyRead <= 0) {
+            Serial.println("OTA: read <= 0, abort");
+            Update.abort();
+            http.end();
+            SendMsgToWeb("update_fail");
+            vTaskDelete(NULL);
+            return;
+        }
+
+        size_t written = Update.write(buf, actuallyRead);
+        if (written != (size_t)actuallyRead) {
+            Serial.printf("OTA: write mismatch w=%u r=%d\n", (unsigned)written, actuallyRead);
+            Update.abort();
+            http.end();
+            SendMsgToWeb("update_fail");
+            vTaskDelete(NULL);
+            return;
+        }
+
+        totalWritten += written;
+
+        uint32_t now = millis();
+        if (now - lastPrint > 2000) {
+            lastPrint = now;
+            Serial.printf("OTA: written %u / %d bytes\n", (unsigned)totalWritten, contentLength);
+        }
+
+        vTaskDelay(5); // rất quan trọng: cho async_tcp / idle chạy
+    }
+
     bool endOk = Update.end();
     http.end();
 
-    Serial.printf("OTA: written=%u\n", (unsigned)written);
+    Serial.printf("OTA: total written=%u\n", (unsigned)totalWritten);
 
     if (!endOk || Update.hasError()) {
-        Serial.println("OTA: Update error");
+        Serial.printf("OTA: Update error, err=%d\n", Update.getError());
         SendMsgToWeb("update_fail");
-        return false;
+        vTaskDelete(NULL);
+        return;
     }
 
     Serial.println("OTA: Update success, restarting...");
     SendMsgToWeb("update_ok");
-    saveVersionToFS(); // new version saved to FS
+    saveVersionToFS();
     vTaskDelay(pdMS_TO_TICKS(5000));
     ESP.restart();
-    return true; // not reached
+
+    // không tới đây, nhưng để đầy đủ:
+    vTaskDelete(NULL);
+}
+//---------------------- OTA from URL ---------------------
+bool otaFromUrl(const String &binUrl) {
+    if (binUrl.length() == 0) {
+        Serial.println("OTA: empty URL");
+        SendMsgToWeb("update_fail");
+        return false;
+    }
+    BaseType_t ok = xTaskCreatePinnedToCore(
+        otaTask,
+        "otaTask",
+        8192, // to thế nhỉ :)))
+        nullptr,
+        1,
+        nullptr,
+        1
+    );
+
+    if (ok != pdPASS) {
+        Serial.println("OTA: failed to create task");
+        SendMsgToWeb("update_fail");
+        return false;
+    }
+
+    Serial.println("OTA: task created");
+    return true;
 }
 
 void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
@@ -256,14 +346,22 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
         // --- SCAN WiFi ---
         if (msg == "wifi_scan") {
             Serial.println("Scanning wifi ..."); // for debug
-            needWifiScan = true;
+            BaseType_t ok = xTaskCreatePinnedToCore(
+                wifiScanTask,
+                "wifiScanTask",
+                4096,
+                nullptr,
+                1,
+                nullptr,
+                1
+            );
         }
         else if (msg.startsWith("wifi_connect:")) {
             DynamicJsonDocument doc(256);
             deserializeJson(doc, msg.substring(13));
             String s = doc["ssid"].as<String>();
             String p = doc["password"].as<String>();
-            scan_wifi(s, p);
+            connectNewWiFi(s, p);
         }
         else if (msg == "restart") {
             ESP.restart();

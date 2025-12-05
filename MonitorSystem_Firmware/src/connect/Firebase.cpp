@@ -1,66 +1,69 @@
 #define ENABLE_DATABASE
 #define ENABLE_USER_AUTH
 
-#include "Firebase.h"
-// Định nghĩa các đối tượng Firebase toàn cục (dùng chung)
+#include "Firebase.h" // File header của bạn
+// Đảm bảo 2 dòng này CHỈ nằm ở đây (file .cpp), KHÔNG nằm trong file .h
+#include <addons/TokenHelper.h>
+#include <addons/RTDBHelper.h>
+
+// Khai báo các biến global
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-// --- HÀM KHỞI TẠO FIREBASE ---
 void setup_Firebase() {
-    
-    // 1. Cấu hình cơ bản
+    Serial.println("Setting up Firebase...");
+
     config.api_key = API_KEY;
-    config.database_url = DATABASE_URL;
+    auth.user.email = USER_EMAIL;
+    auth.user.password = USER_PASSWORD;
+    
+    // Lưu ý: database_url nên bỏ "https://" và dấu "/" ở cuối cho chuẩn nhất
+    // Ví dụ: "du-an-abc.firebaseio.com"
+    config.database_url = DATABASE_URL; 
 
-    // 2. Xác thực Ẩn danh (Anonymous Authentication)
-    // Đảm bảo Anonymous Sign-in đã được bật trên Firebase Console
-    auth.user.email = ""; // Để trống
-    auth.user.password = ""; // Để trống
-    config.signer.anonymous = true; 
+    config.token_status_callback = tokenStatusCallback; // Callback từ TokenHelper
 
-    // 3. Khởi tạo và Bật Reconnect
+    Firebase.reconnectNetwork(true);
+    
+    // Tăng buffer nếu gửi dữ liệu lớn (JSON to), với sensor đơn giản thì để mặc định cũng được
+    fbdo.setBSSLBufferSize(4096, 1024); 
+
     Firebase.begin(&config, &auth);
-    Firebase.reconnectWiFi(true);
-
-    // 4. Tạo Task gửi dữ liệu
-    xTaskCreate(sendDataTask, "FirebaseTask", 4096, NULL, 1, NULL);
-    Serial.println("Firebase Client Task đã khởi tạo.");
+    Firebase.setDoubleDigits(5); // Lấy 5 số sau dấu phẩy cho float
 }
 
-// --- TASK GỬI DỮ LIỆU (FreeRTOS Task) ---
-void sendDataTask(void *pvParameters) {
-    const TickType_t delayTime = pdMS_TO_TICKS(5000);
-    int counter = 0;
-
-    while (true) {
-        // 1. Kiểm tra kết nối WiFi và Firebase Ready
-        // Firebase.ready() kiểm tra cả WiFi và trạng thái Token
-        if (WiFi.isConnected() && Firebase.ready()) {
-            counter++;
-
-            // 2. Tạo JSON Payload
-            FirebaseJson json;
-            float tempValue = 20.0 + (float)random(1, 100) / 10.0;
-            float humiValue = 50.0 + (float)random(1, 20) / 10.0;
+void firebaseTask(void *pvParameters) {
+    for (;;) {
+        // Chỉ gửi khi Firebase đã sẵn sàng và Token hợp lệ
+        if (Firebase.ready()) {
             
-            json.set("temperature", tempValue);
-            json.set("humidity", humiValue);
+            // 1. Giả lập số liệu
+            float temp = 25.5; 
+            float humi = 36.36;
 
-            if (Firebase.RTDB.setJSON(&fbdo, "test", &json)) {
-                Serial.printf("Gửi thành công #%d: Temp=%.2f\n", counter, tempValue);
+            // 2. Tạo đối tượng JSON bằng thư viện FirebaseJson (nhẹ hơn ArduinoJson)
+            FirebaseJson json;
+            json.add("temp", temp); // Thêm key "temp"
+            json.add("humi", humi); // Thêm key "humi"
+
+            // 3. Gửi lên Firebase
+            // Đường dẫn: "system_1/sensors"
+            Serial.println("Sending data...");
+            
+            if (Firebase.setJSON(fbdo, "system_1/sensor", json)) {
+                Serial.println("Data sent successfully!");
+                // In đường dẫn và ETag để debug nếu cần (xem RTDBHelper)
+                // printResult(fbdo); 
             } else {
-                Serial.printf("Lỗi gửi Firebase #%d: %s\n", counter, fbdo.errorReason().c_str());
+                Serial.printf("Error: %s\n", fbdo.errorReason().c_str());
             }
 
-        } else if (!WiFi.isConnected()){
-            Serial.println("Client: Đang chờ kết nối WiFi...");
         } else {
-            // Lỗi Token hoặc Initialisation
-            Serial.printf("Client: Lỗi Firebase hoặc Token: %s\n", fbdo.errorReason().c_str());
+            Serial.println("Firebase not ready...");
         }
-        
-        vTaskDelay(delayTime);
+
+        // Delay 5000ms (5 giây) trước khi lặp lại
+        vTaskDelay(pdMS_TO_TICKS(5000));
     }
 }

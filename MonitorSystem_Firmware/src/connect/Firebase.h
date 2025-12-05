@@ -3,13 +3,10 @@
 
 
 #include <Arduino.h>
-#include <Firebase_ESP_Client.h> // Thư viện cũ 
+#include <FirebaseESP32.h>
 #include <WiFi.h>
 #include "../../env.h"
 
-extern FirebaseData fbdo;
-extern FirebaseAuth auth;
-extern FirebaseConfig config;
 
 void setup_Firebase();
 void sendDataTask(void *pvParameters);

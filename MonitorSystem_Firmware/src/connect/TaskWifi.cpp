@@ -6,7 +6,7 @@ constexpr char AP_PASSWORD[] = "87654321";
 String ssid = "";
 String password = "";
 
-bool ap_mode = true;
+bool ap_mode = false;
 bool checkInternet(unsigned long timeoutMs = 3000) {
     HTTPClient http;
     http.setTimeout(timeoutMs);
@@ -70,7 +70,7 @@ void setup_STA() {
     vTaskDelay(10);
 }
 
-void Wifi_reconnect() {
+void WiFi_Handle() {
     if (ap_mode) {
         return;
     }
@@ -80,7 +80,6 @@ void Wifi_reconnect() {
             if (millis() - timepress >= 3000) {
                 ap_mode = true;
                 Serial.println("Vào chế độ cấu hình AP");
-                WiFi.disconnect(true);
                 WiFi.mode(WIFI_AP_STA); // STA để dò wifi
                 setup_AP();
                 initWebserver();
@@ -112,10 +111,10 @@ void Wifi_reconnect() {
 void initWiFi() {
     loadWiFiFromFS();
     pinMode(BOOT_BUTTON, INPUT_PULLUP);
-    // WiFi.mode(WIFI_STA);
-    WiFi.mode(WIFI_AP_STA); // FOR TEST
+    WiFi.mode(WIFI_STA);
     setup_STA();
-    setup_AP(); // FOR TEST
-    initWebserver();  // FOR TEST
+    // WiFi.mode(WIFI_AP_STA); // FOR TEST
+    // setup_AP(); // FOR TEST
+    // initWebserver();  // FOR TEST
 }
 
