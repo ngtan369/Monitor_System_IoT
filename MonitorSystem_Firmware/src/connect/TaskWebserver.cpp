@@ -7,6 +7,7 @@ String ota_version_link = "https://raw.githubusercontent.com/TrungTan369/Embedde
 String current_version = "0.0";
 String latest_Version = "";
 String ota_update_link = "";
+
 void sendConfigJson() {
     if (!LittleFS.begin()) {
         Serial.println("Failed to mount LittleFS in sendConfigJson");
@@ -145,6 +146,46 @@ bool checkAndReportLatestVersion() {
     return true;
 }
 
+//---------------------- OTA from URL ---------------------
+bool otaFromUrl(const String &binUrl) {
+    HTTPClient http;
+    http.begin(binUrl);
+    int httpCode = http.GET();
+    if (httpCode != HTTP_CODE_OK) {
+        http.end();
+        Serial.printf("OTA: HTTP code %d\n", httpCode);
+        SendMsgToWeb("update_fail");
+        return false;
+    }
+
+    int contentLength = http.getSize();
+    WiFiClient *client = http.getStreamPtr();
+
+    if (!Update.begin(contentLength)) {
+        Serial.println("OTA: Update.begin failed");
+        http.end();
+        return false;
+    }
+
+    size_t written = Update.writeStream(*client);
+    bool endOk = Update.end();
+
+    http.end();
+
+    if (!endOk || Update.hasError()) {
+        Serial.printf("OTA: Update error. written=%u\n", (unsigned)written);
+        SendMsgToWeb("update_fail");
+        return false;
+    }
+
+    Serial.println("OTA: Update success, restarting...");
+    SendMsgToWeb("update_ok");
+    saveVersionToFS(); // new version saved to FS
+    vTaskDelay(pdMS_TO_TICKS(5000));
+    ESP.restart();
+    return true; // thực tế sẽ không chạy đến đây vì restart
+}
+
 void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
                AwsEventType type, void* arg, uint8_t* data, size_t len)
 {
@@ -182,45 +223,6 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
 
 void handleRoot(AsyncWebServerRequest* request) {
     request->send(LittleFS, "/index.html", "text/html");
-}
-//---------------------- OTA from URL ---------------------
-bool otaFromUrl(const String &binUrl) {
-    HTTPClient http;
-    http.begin(binUrl);
-    int httpCode = http.GET();
-    if (httpCode != HTTP_CODE_OK) {
-        http.end();
-        Serial.printf("OTA: HTTP code %d\n", httpCode);
-        SendMsgToWeb("update_fail")
-        return false;
-    }
-
-    int contentLength = http.getSize();
-    WiFiClient *client = http.getStreamPtr();
-
-    if (!Update.begin(contentLength)) {
-        Serial.println("OTA: Update.begin failed");
-        http.end();
-        return false;
-    }
-
-    size_t written = Update.writeStream(*client);
-    bool endOk = Update.end();
-
-    http.end();
-
-    if (!endOk || Update.hasError()) {
-        Serial.printf("OTA: Update error. written=%u\n", (unsigned)written);
-        SendMsgToWeb("update_fail")
-        return false;
-    }
-
-    Serial.println("OTA: Update success, restarting...");
-    SendMsgToWeb("update_ok");
-    saveVersionToFS(); // new version saved to FS
-    vTaskDelay(pdMS_TO_TICKS(5000));
-    ESP.restart();
-    return true; // thực tế sẽ không chạy đến đây vì restart
 }
 
 void initWebserver() {
