@@ -16,22 +16,15 @@ void loop() {
     WiFi_Handle();
     ws.cleanupClients();
 
-    // 1. Kích hoạt quét (Chỉ gửi lệnh rồi thoát ngay, không chờ)
     if (needWifiScan) {
         needWifiScan = false;
         Serial.println("Starting Async WiFi Scan...");
-        // Tham số 'true' = Async Mode (Chạy ngầm)
         WiFi.scanNetworks(true); 
     }
   if (needConnectWifi) {
         needConnectWifi = false;
         connectNewWiFi(targetSSID, targetPass);
   }
-    // 2. Kiểm tra kết quả quét trong mỗi vòng lặp
-    // scanComplete() trả về:
-    // -2: Chưa bắt đầu quét
-    // -1: Đang quét (Busy)
-    // >= 0: Số mạng tìm thấy (Đã xong)
     int n = WiFi.scanComplete();
 
     if (n >= 0) {

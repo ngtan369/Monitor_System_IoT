@@ -148,27 +148,6 @@ bool checkAndReportLatestVersion() {
     ws.textAll(msg);
     return true;
 }
-
-// void wifiScanTask(void *param) {
-//     ws.cleanupClients();
-//     WiFi.scanDelete();  
-//     Serial.println("loop: Scanning WiFi...");
-//     int n = WiFi.scanNetworks();
-//     DynamicJsonDocument doc(4096);
-//     JsonArray arr = doc.createNestedArray("scan");
-
-//     for (int i = 0; i < n; i++) {
-//         JsonObject o = arr.createNestedObject();
-//         o["ssid"] = WiFi.SSID(i);
-//         o["rssi"] = WiFi.RSSI(i);
-//         o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-//     }
-
-//     String out;
-//     serializeJson(doc, out);
-//     ws.textAll(out);
-//     vTaskDelete(NULL);
-// }
 void otaTask(void *param) {
     const int MAX_REDIRECTS = 5;
     int redirects = 0;
@@ -343,16 +322,7 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
         Serial.printf("WS_RX from client %u: [%s]\n", client->id(), msg.c_str());
         // --- SCAN WiFi ---
         if (msg == "wifi_scan") {
-            Serial.println("Scanning wifi ..."); // for debug
-            // BaseType_t ok = xTaskCreatePinnedToCore(
-            //     wifiScanTask,
-            //     "wifiScanTask",
-            //     4096,
-            //     nullptr,
-            //     1,
-            //     nullptr,
-            //     1
-            // );
+            Serial.println("Scanning wifi ...");
             needWifiScan = true;
         }
         else if (msg.startsWith("wifi_connect:")) {
@@ -361,7 +331,6 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
             targetSSID = doc["ssid"].as<String>();
             targetPass = doc["password"].as<String>();
             needConnectWifi = true;
-            // connectNewWiFi(s, p);
         }
         else if (msg == "restart") {
             ESP.restart();
