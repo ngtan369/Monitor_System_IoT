@@ -1,47 +1,63 @@
 #define ENABLE_DATABASE
 #define ENABLE_USER_AUTH
 
-#include "Firebase.h" // File header của bạn
-// Đảm bảo 2 dòng này CHỈ nằm ở đây (file .cpp), KHÔNG nằm trong file .h
+#include "Firebase.h"
 #include <addons/TokenHelper.h>
 #include <addons/RTDBHelper.h>
 
-// Khai báo các biến global
 FirebaseData fbdo;
-FirebaseData streamData; // Để NHẬN (Downlink)
+FirebaseData streamData;
 FirebaseAuth auth;
 FirebaseConfig config;
 
 SensorData sensordata;
-ControlData currentData = {0.0, 0.0};
+ControlData currentData = {0, 0};
+
 
 void firebaseTask(void *pvParameters) {
-
+    bool isStreamRunning = false;
     for (;;) {
        if (Firebase.ready()) {
-            if (Firebase.beginStream(streamData, "system_1/control")) {
-                Serial.println("Stream started inside Task!");
-            } else {
+            if (!isStreamRunning) {
+                if (Firebase.beginStream(streamData, "system_1/control")) {
+                    Serial.println("Stream started inside Task!");
+                    isStreamRunning = true; // Đánh dấu là đã chạy xong
+                } else {
                     Serial.printf("Stream init failed: %s\n", streamData.errorReason().c_str());
-            }
-            if (!Firebase.readStream(streamData)) {
-                Serial.printf("Stream read error: %s\n", streamData.errorReason().c_str());
-            }
-            if (streamData.streamAvailable()) {
-                String path = streamData.dataPath();    
-                if (path == "/fan") {
-                    currentData.fan = streamData.floatData();
-                    Serial.println("Stream: Fan updated");
-                } 
-                else if (path == "/led") {
-                    currentData.led = streamData.floatData();
-                    Serial.println("Stream: LED updated");
                 }
-                if (path == "/") {
-                    FirebaseJson *json = streamData.jsonObjectPtr();
+            }
+            if (isStreamRunning) {
+                if (!Firebase.readStream(streamData)) {
+                    Serial.printf("Stream read error: %s\n", streamData.errorReason().c_str());
+                    isStreamRunning = false;
                 }
-                if (controlQueue != NULL) {
-                    xQueueSend(controlQueue, &currentData, 0);
+                if (streamData.streamAvailable()) {
+                    String path = streamData.dataPath();    
+                        if (path == "/fan") {
+                            currentData.fan = streamData.intData();
+                            Serial.println("Stream: Fan updated");
+                        } 
+                        else if (path == "/led") {
+                            currentData.led = streamData.intData();
+                            Serial.println("Stream: LED updated");
+                        }
+                        if (path == "/") {
+                            FirebaseJson *json = streamData.jsonObjectPtr();
+                            FirebaseJsonData jsonData;
+                            json->get(jsonData, "fan"); 
+                            if (jsonData.success) {
+                                currentData.fan = jsonData.intValue; 
+                                Serial.printf("JSON update Fan: %d\n", currentData.fan);
+                            }
+                            json->get(jsonData, "led");
+                            if (jsonData.success) {
+                                currentData.led = jsonData.intValue;
+                                Serial.printf("JSON update Led: %d\n", currentData.led);
+                            }     
+                        }
+                    if (controlQueue != NULL) {
+                        xQueueSend(controlQueue, &currentData, 0);
+                    }
                 }
             }
         } else {
@@ -81,16 +97,10 @@ void initFirebase() {
     Firebase.begin(&config, &auth);
     Firebase.setDoubleDigits(5);
 
-    // if (!Firebase.beginStream(streamData, "system_1/control")) {
-    //     Serial.printf("Stream begin error: %s\n", streamData.errorReason().c_str());
-    // } else {
-    //     Serial.println("Stream started successfully!");
-    // }
-
     xTaskCreate(
         firebaseTask,
         "firebaseTask",
-        8192,
+        10384,
         NULL,
         1,
         NULL

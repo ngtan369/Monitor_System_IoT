@@ -10,8 +10,8 @@
 extern TaskHandle_t xTaskLedHandle;
 
 struct ControlData {
-    float fan;
-    float led;
+    int fan;
+    int led;
 };
 
 extern QueueHandle_t controlQueue;

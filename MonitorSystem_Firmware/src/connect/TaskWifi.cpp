@@ -99,16 +99,16 @@ void WiFi_Handle() {
     }
     else {
         // Có Wifi, kiểm tra Internet ĐỊNH KỲ (không kiểm tra liên tục)
-        if (millis() - lastInternetCheck > 10000) { // 10 giây check 1 lần
-            isInternetAvailable = checkInternet(2000); // Timeout ngắn thôi (2s)
-            lastInternetCheck = millis();
-        }
+        // if (millis() - lastInternetCheck > 10000) { // 10 giây check 1 lần
+        //     isInternetAvailable = checkInternet(2000); // Timeout ngắn thôi (2s)
+        //     lastInternetCheck = millis();
+        // }
 
-        if (!isInternetAvailable) {
-            ulTargetDelay = FLASH_DELAY_NO_INTERNET;
-        } else {
-            ulTargetDelay = 0; // Có mạng ngon lành
-        }
+        // if (!isInternetAvailable) {
+        //     ulTargetDelay = FLASH_DELAY_NO_INTERNET;
+        // } else {
+        //     ulTargetDelay = 0; // Có mạng ngon lành
+        // }
     }
 
     if (xTaskLedHandle != NULL) {

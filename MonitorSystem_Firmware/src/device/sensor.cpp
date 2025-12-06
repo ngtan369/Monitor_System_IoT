@@ -4,7 +4,7 @@ DHT20 dht20;
 float temp;
 float humi;
 uint8_t light = 0;
-QueueHandle_t dataQueue = nullptr;   // ĐỊNH NGHĨA biến global
+QueueHandle_t dataQueue = nullptr; 
 
 void TaskSensors(void* pvParameters) {
     while (true) {

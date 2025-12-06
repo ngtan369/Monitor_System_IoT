@@ -5,15 +5,16 @@ Adafruit_NeoPixel pixels(4, LED_PIN, NEO_GRB + NEO_KHZ800);
 QueueHandle_t controlQueue = xQueueCreate(5, sizeof(ControlData));
 bool fan_state = false;
 bool led_state = false;
+
 void TaskControl(void* pvParameters) {
     while (1) {
         if(controlQueue != NULL) {
             ControlData controlData;
             if (xQueueReceive(controlQueue, &controlData, portMAX_DELAY) == pdPASS) {
-                Serial.printf("Control Task: Received fan=%.2f, led=%.2f\n", controlData.fan, controlData.led);
-                fan_state = (controlData.fan > 0.5);
+                Serial.printf("Control Task: Received fan= %d, led= %d\n", controlData.fan, controlData.led);
+                fan_state = (controlData.fan > 0);
                 digitalWrite(FAN_PIN, fan_state ? HIGH : LOW);
-                led_state = (controlData.led > 0.5);
+                led_state = (controlData.led > 0);
                 if (led_state){
                     pixels.setPixelColor(1, pixels.Color(150, 150, 150));
                     pixels.setPixelColor(2, pixels.Color(150, 150, 150));
@@ -61,12 +62,16 @@ void Led_Indicate_Task(void* pvParameters) {
 void initControl() {
     pinMode(FAN_PIN, OUTPUT);
     pinMode(LED_ONBOARD, OUTPUT); // LED_BUILTIN
-    pinMode(LED_PIN, OUTPUT);
+    // pinMode(LED_PIN, OUTPUT);
 
     digitalWrite(FAN_PIN, LOW);
     digitalWrite(LED_ONBOARD, LOW);
-    digitalWrite(LED_PIN, LOW);
-
+    // digitalWrite(LED_PIN, LOW);
+    pixels.begin();
+    pixels.setPixelColor(0, pixels.Color(0, 0, 0));
+    pixels.setPixelColor(1, pixels.Color(0, 0, 0));
+    pixels.show();
+    
     xTaskCreate(
         Led_Indicate_Task,
         "Led_Indicator",

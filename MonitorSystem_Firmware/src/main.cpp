@@ -14,5 +14,5 @@ void setup() {
 
 void loop() {
     WiFi_Handle();
-    vTaskDelay(pdMS_TO_TICKS(10));
+    vTaskDelay(pdMS_TO_TICKS(50));
 }
