@@ -5,8 +5,8 @@ constexpr char AP_PASSWORD[] = "87654321";
 
 String ssid = "";
 String password = "";
-unsigned long lastInternetCheck = 0;
-bool isInternetAvailable = false;
+// unsigned long lastInternetCheck = 0;
+// bool isInternetAvailable = false;
 bool ap_mode = false;
 bool checkInternet(unsigned long timeoutMs = 3000) {
     HTTPClient http;

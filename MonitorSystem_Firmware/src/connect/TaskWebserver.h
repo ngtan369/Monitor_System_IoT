@@ -8,6 +8,11 @@
 #include <Update.h>
 #include "TaskWifi.h"
 
+extern String targetSSID;
+extern String targetPass;
+extern bool  needWifiScan;
+extern bool  needConnectWifi;
+extern AsyncWebSocket ws;
 void initWebserver();
-
+void connectNewWiFi(String, String);
 #endif

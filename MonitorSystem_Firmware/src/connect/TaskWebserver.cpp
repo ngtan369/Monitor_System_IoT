@@ -6,7 +6,10 @@ String ota_version_link = "https://raw.githubusercontent.com/TrungTan369/Embedde
 String current_version = "0.0";
 String latest_Version = "";
 String ota_update_link = "";
-
+String targetSSID = "";
+String targetPass = "";
+bool  needConnectWifi = false;
+bool needWifiScan = false;
 void sendConfigJson() {
     if (!LittleFS.begin()) {
         Serial.println("Failed to mount LittleFS in sendConfigJson");
@@ -146,26 +149,26 @@ bool checkAndReportLatestVersion() {
     return true;
 }
 
-void wifiScanTask(void *param) {
-    ws.cleanupClients();
-    WiFi.scanDelete();  
-    Serial.println("loop: Scanning WiFi...");
-    int n = WiFi.scanNetworks();
-    DynamicJsonDocument doc(4096);
-    JsonArray arr = doc.createNestedArray("scan");
+// void wifiScanTask(void *param) {
+//     ws.cleanupClients();
+//     WiFi.scanDelete();  
+//     Serial.println("loop: Scanning WiFi...");
+//     int n = WiFi.scanNetworks();
+//     DynamicJsonDocument doc(4096);
+//     JsonArray arr = doc.createNestedArray("scan");
 
-    for (int i = 0; i < n; i++) {
-        JsonObject o = arr.createNestedObject();
-        o["ssid"] = WiFi.SSID(i);
-        o["rssi"] = WiFi.RSSI(i);
-        o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
-    }
+//     for (int i = 0; i < n; i++) {
+//         JsonObject o = arr.createNestedObject();
+//         o["ssid"] = WiFi.SSID(i);
+//         o["rssi"] = WiFi.RSSI(i);
+//         o["sec"]  = (WiFi.encryptionType(i) != WIFI_AUTH_OPEN);
+//     }
 
-    String out;
-    serializeJson(doc, out);
-    ws.textAll(out);
-    vTaskDelete(NULL);
-}
+//     String out;
+//     serializeJson(doc, out);
+//     ws.textAll(out);
+//     vTaskDelete(NULL);
+// }
 void otaTask(void *param) {
     const int MAX_REDIRECTS = 5;
     int redirects = 0;
@@ -176,7 +179,6 @@ void otaTask(void *param) {
     while (true) {
         Serial.print("OTA: GET ");
         Serial.println(url);
-
         if (!http.begin(url)) {
             Serial.println("OTA: http.begin failed");
             SendMsgToWeb("update_fail");
@@ -278,7 +280,7 @@ void otaTask(void *param) {
             Serial.printf("OTA: written %u / %d bytes\n", (unsigned)totalWritten, contentLength);
         }
 
-        vTaskDelay(5); // rất quan trọng: cho async_tcp / idle chạy
+        vTaskDelay(5); 
     }
 
     bool endOk = Update.end();
@@ -342,22 +344,24 @@ void onWsEvent(AsyncWebSocket* server, AsyncWebSocketClient* client,
         // --- SCAN WiFi ---
         if (msg == "wifi_scan") {
             Serial.println("Scanning wifi ..."); // for debug
-            BaseType_t ok = xTaskCreatePinnedToCore(
-                wifiScanTask,
-                "wifiScanTask",
-                4096,
-                nullptr,
-                1,
-                nullptr,
-                1
-            );
+            // BaseType_t ok = xTaskCreatePinnedToCore(
+            //     wifiScanTask,
+            //     "wifiScanTask",
+            //     4096,
+            //     nullptr,
+            //     1,
+            //     nullptr,
+            //     1
+            // );
+            needWifiScan = true;
         }
         else if (msg.startsWith("wifi_connect:")) {
             DynamicJsonDocument doc(256);
             deserializeJson(doc, msg.substring(13));
-            String s = doc["ssid"].as<String>();
-            String p = doc["password"].as<String>();
-            connectNewWiFi(s, p);
+            targetSSID = doc["ssid"].as<String>();
+            targetPass = doc["password"].as<String>();
+            needConnectWifi = true;
+            // connectNewWiFi(s, p);
         }
         else if (msg == "restart") {
             ESP.restart();

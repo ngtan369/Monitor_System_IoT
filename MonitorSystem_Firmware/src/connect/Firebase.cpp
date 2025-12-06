@@ -43,17 +43,21 @@ void firebaseTask(void *pvParameters) {
                         }
                         if (path == "/") {
                             FirebaseJson *json = streamData.jsonObjectPtr();
-                            FirebaseJsonData jsonData;
-                            json->get(jsonData, "fan"); 
-                            if (jsonData.success) {
-                                currentData.fan = jsonData.intValue; 
+                           // --- 1. Xử lý Fan (Dùng biến riêng) ---
+                            FirebaseJsonData jsonFan; 
+                            json->get(jsonFan, "fan"); 
+                            if (jsonFan.success) {
+                                currentData.fan = jsonFan.intValue; 
                                 Serial.printf("JSON update Fan: %d\n", currentData.fan);
                             }
-                            json->get(jsonData, "led");
-                            if (jsonData.success) {
-                                currentData.led = jsonData.intValue;
+
+                            // --- 2. Xử lý Led (Dùng biến riêng) ---
+                            FirebaseJsonData jsonLed;
+                            json->get(jsonLed, "led");
+                            if (jsonLed.success) {
+                                currentData.led = jsonLed.intValue;
                                 Serial.printf("JSON update Led: %d\n", currentData.led);
-                            }     
+                            }
                         }
                     if (controlQueue != NULL) {
                         xQueueSend(controlQueue, &currentData, 0);
@@ -97,12 +101,13 @@ void initFirebase() {
     Firebase.begin(&config, &auth);
     Firebase.setDoubleDigits(5);
 
-    xTaskCreate(
+    xTaskCreatePinnedToCore(
         firebaseTask,
         "firebaseTask",
         10384,
         NULL,
         1,
-        NULL
+        NULL,
+        1
     );
 }

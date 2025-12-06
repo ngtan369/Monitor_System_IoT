@@ -221,7 +221,11 @@
             vertical-align: middle;
             margin-left: 10px;
         }
-
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
         .popup-overlay {
             position: fixed;
             top: 0;
@@ -280,20 +284,35 @@
             box-shadow: 0 0 4px rgba(30, 86, 160, 0.4);
         }
 
-        .btn-blue,
+      /* Button xanh */
+        .btn-blue {
+            width: 100%;
+            padding: 12px;
+            background: #1e56a0;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+
+        .btn-blue:hover {
+            background: #17457f;
+        }
+
+        /* Button xám */
         .btn-gray {
             width: 100%;
             padding: 12px;
+            background: #d0d0d0;
+            color: black;
             border: none;
             border-radius: 8px;
             cursor: pointer;
             font-size: 16px;
             transition: 0.2s;
-            background: #2569bd;
-        }
-
-        .btn-blue:hover {
-            background: #405977;
         }
 
         .btn-gray:hover {
