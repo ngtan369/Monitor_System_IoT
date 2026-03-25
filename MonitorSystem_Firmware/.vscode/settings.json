@@ -28,5 +28,6 @@
         "cmath": "cpp",
         "algorithm": "cpp"
     },
-    "cmake.ignoreCMakeListsMissing": true
+    "cmake.ignoreCMakeListsMissing": true,
+    "idf.pythonInstallPath": "/usr/bin/python3"
 }
